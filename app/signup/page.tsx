@@ -2,6 +2,30 @@
 
 import type React from "react"
 import { useState } from "react"
+import { CheckCircle, XCircle } from "lucide-react"
+// Password validation utility
+const passwordChecks = [
+  {
+    label: "At least 6 characters",
+    test: (pw: string) => pw.length >= 6,
+  },
+  {
+    label: "At least one uppercase letter",
+    test: (pw: string) => /[A-Z]/.test(pw),
+  },
+  {
+    label: "At least one lowercase letter",
+    test: (pw: string) => /[a-z]/.test(pw),
+  },
+  {
+    label: "At least one number",
+    test: (pw: string) => /[0-9]/.test(pw),
+  },
+  {
+    label: "At least one special character",
+    test: (pw: string) => /[^A-Za-z0-9]/.test(pw),
+  },
+]
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -87,6 +111,8 @@ export default function SignupPage() {
     type: "email",
   })
   const [errorMessage, setErrorMessage] = useState("")
+  // Track password validity for visual feedback
+  const [passwordTouched, setPasswordTouched] = useState(false)
 
   const { signUp, signInWithGoogle } = useAuth()
   const { toast } = useToast()
@@ -97,6 +123,7 @@ export default function SignupPage() {
       ...prev,
       [e.target.name]: e.target.value,
     }))
+    if (e.target.name === "password") setPasswordTouched(true)
     if (errorMessage) setErrorMessage("")
   }
 
@@ -104,19 +131,21 @@ export default function SignupPage() {
     e.preventDefault()
     setErrorMessage("")
 
-    if (formData.password !== formData.confirmPassword) {
+    // Password edge case checks
+    const failedChecks = passwordChecks.filter((check) => !check.test(formData.password))
+    if (failedChecks.length > 0) {
       toast({
         title: "Error",
-        description: "Passwords do not match",
+        description: `Password requirements not met: ${failedChecks.map((c) => c.label).join(", ")}`,
         variant: "destructive",
       })
       return
     }
 
-    if (formData.password.length < 6) {
+    if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Error",
-        description: "Password must be at least 6 characters",
+        description: "Passwords do not match",
         variant: "destructive",
       })
       return
@@ -262,8 +291,10 @@ export default function SignupPage() {
                   placeholder="Create a password"
                   value={formData.password}
                   onChange={handleChange}
+                  onBlur={() => setPasswordTouched(true)}
                   className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20 pr-10"
                   required
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -273,6 +304,24 @@ export default function SignupPage() {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
+              {/* Password requirements visual feedback */}
+              {passwordTouched && (
+                <div className="mt-2 space-y-1">
+                  {passwordChecks.map((check) => {
+                    const passed = check.test(formData.password)
+                    return (
+                      <div key={check.label} className="flex items-center text-sm gap-2">
+                        {passed ? (
+                          <CheckCircle size={16} className="text-green-500" />
+                        ) : (
+                          <XCircle size={16} className="text-red-500" />
+                        )}
+                        <span className={passed ? "text-green-500" : "text-red-400"}>{check.label}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
