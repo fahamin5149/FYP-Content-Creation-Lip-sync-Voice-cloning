@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.15.0",
     "@emotion/is-prop-valid": "latest",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",
@@ -47,6 +48,7 @@
     "cmdk": "1.0.4",
     "cobe": "latest",
     "date-fns": "4.1.0",
+    "elevenlabs": "^1.59.0",
     "embla-carousel-react": "8.5.1",
     "firebase": "^12.2.1",
     "framer-motion": "latest",
@@ -54,8 +56,9 @@
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "motion": "latest",
-    "next": "14.2.16",
+    "next": "^14.2.32",
     "next-themes": "latest",
+    "openai": "^5.20.3",
     "react": "^18",
     "react-day-picker": "9.8.0",
     "react-dom": "^18",
