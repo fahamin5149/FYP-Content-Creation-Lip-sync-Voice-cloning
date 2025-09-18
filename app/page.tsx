@@ -1,5 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import Hero from "@/components/home/hero"
 import Features from "@/components/features"
 import { TestimonialsSection } from "@/components/testimonials"
@@ -173,19 +174,19 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-4">
-          <a
+          <Link
             href="/login"
             className="font-medium transition-colors hover:text-foreground text-muted-foreground text-sm cursor-pointer"
           >
             Log In
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/signup"
             className="rounded-md font-bold relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center bg-gradient-to-b from-primary to-primary/80 text-white shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] px-4 py-2 text-sm"
           >
             Sign Up
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -258,18 +259,18 @@ export default function Home() {
                 FAQ
               </button>
               <div className="border-t border-border/50 pt-4 mt-4 flex flex-col space-y-3">
-                <a
+                <Link
                   href="/login"
                   className="px-4 py-3 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-background/50 cursor-pointer"
                 >
                   Log In
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/signup"
                   className="px-4 py-3 text-lg font-bold text-center bg-gradient-to-b from-primary to-primary/80 text-white rounded-lg shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                 >
                   Sign Up
-                </a>
+                </Link>
               </div>
             </nav>
           </div>
