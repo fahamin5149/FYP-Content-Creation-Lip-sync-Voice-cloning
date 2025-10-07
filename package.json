@@ -50,7 +50,7 @@
     "date-fns": "4.1.0",
     "elevenlabs": "^1.59.0",
     "embla-carousel-react": "8.5.1",
-    "firebase": "^12.2.1",
+    
     "framer-motion": "latest",
     "geist": "latest",
     "input-otp": "1.4.1",
