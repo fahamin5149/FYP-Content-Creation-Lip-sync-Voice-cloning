@@ -1,15 +1,17 @@
 // AI Services Integration
 // This file contains the actual AI service integrations for production use
 
-import OpenAI from 'openai'
 import { spawn } from 'child_process'
 import { promises as fs } from 'fs'
 import path from 'path'
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Helper: lazily initialize OpenAI client only when an API key is available
+async function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) return null
+  const OpenAI = (await import('openai')).default
+  return new OpenAI({ apiKey })
+}
 
 // Configuration
 const CONFIG = {
@@ -39,9 +41,12 @@ export class TranscriptionService {
         throw new Error(`File too large. Maximum size is ${CONFIG.MAX_AUDIO_SIZE / (1024 * 1024)}MB`)
       }
 
-      // Use Whisper API for transcription
+      // Use Whisper API for transcription (lazy-init OpenAI client)
+      const openai = await getOpenAIClient()
+      if (!openai) throw new Error('OpenAI API key not configured')
+      const fsMod = await import('fs')
       const transcription = await openai.audio.transcriptions.create({
-        file: fs.createReadStream(filePath),
+        file: fsMod.createReadStream(filePath),
         model: CONFIG.WHISPER_MODEL,
         language: language !== 'auto' ? language : undefined,
         response_format: 'verbose_json',
@@ -71,9 +76,12 @@ export class TranscriptionService {
     script: string
   }> {
     try {
-      // Use Whisper for language detection
+      // Use Whisper for language detection (lazy-init OpenAI client)
+      const openai = await getOpenAIClient()
+      if (!openai) throw new Error('OpenAI API key not configured')
+      const fsMod = await import('fs')
       const transcription = await openai.audio.transcriptions.create({
-        file: fs.createReadStream(filePath),
+        file: fsMod.createReadStream(filePath),
         model: CONFIG.WHISPER_MODEL,
         response_format: 'verbose_json'
       })
@@ -136,6 +144,8 @@ export class TextEnhancementService {
     try {
       const prompt = this.buildEnhancementPrompt(text, language, enhancementOptions)
       
+      const openai = await getOpenAIClient()
+      if (!openai) throw new Error('OpenAI API key not configured')
       const response = await openai.chat.completions.create({
         model: CONFIG.GPT_MODEL,
         messages: [{ role: 'user', content: prompt }],
@@ -172,6 +182,8 @@ export class TextEnhancementService {
       
       "${text}"`
       
+      const openai = await getOpenAIClient()
+      if (!openai) throw new Error('OpenAI API key not configured')
       const response = await openai.chat.completions.create({
         model: CONFIG.GPT_MODEL,
         messages: [{ role: 'user', content: prompt }],

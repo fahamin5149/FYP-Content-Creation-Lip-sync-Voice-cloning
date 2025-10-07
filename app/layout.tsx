@@ -9,7 +9,10 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: "Urdu AI Video Creator",
-  description: "Created by Amin"
+  description: "Created by Amin",
+  icons: {
+    icon: "/weblogo-removebg-preview.png",  
+  },
 }
 
 export default function RootLayout({

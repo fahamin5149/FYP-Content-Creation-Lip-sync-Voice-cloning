@@ -17,8 +17,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [emailVerificationError, setEmailVerificationError] = useState("")
-  const { user, setUser, logout } = useAuth()
-  const { signIn, signInWithGoogle, resetPassword } = useAuth()
+  const { user, setUser, logout, signIn, signInWithGoogle, resetPassword } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
   const [showForgotPassword, setShowForgotPassword] = useState(false)
@@ -30,19 +29,20 @@ export default function LoginPage() {
 
   try {
     const user = await signIn(email, password)
-    // ✅ If no error, go to dashboard
+    // If signIn resolves, redirect to dashboard
     router.push("/dashboard")
   } catch (err: any) {
-    if (err.message === "EmailUnverified") {
+    // Generic handling: show a friendly invalid credentials message for auth errors
+    if (err && (err.message === "Invalid credentials" || err.code === "auth/invalid-credential")) {
+      setEmailVerificationError("Invalid credentials. Please try again.")
+    } else if (err && err.message === "EmailUnverified") {
       await logout()
       setUser(null)
       setEmailVerificationError(
         "Please verify your email first before signing in. Check your inbox for the verification link."
       )
-    } else if (err.message === "Firebase: Error (auth/invalid-credential).") {
-      setEmailVerificationError("Invalid credentials. Please try again.")
     } else {
-      setEmailVerificationError(err.message)
+      setEmailVerificationError(err?.message ?? "An error occurred. Please try again.")
     }
   } finally {
     setIsLoading(false)
@@ -53,16 +53,8 @@ export default function LoginPage() {
     setIsLoading(true)
     setEmailVerificationError("")
     try {
-      const user = await signInWithGoogle()
-
-      if (user && !user.emailVerified) {
-        console.log("Google user email not verified:", user.email)
-        setEmailVerificationError(
-          "Please verify your email first before signing in. Check your inbox for the verification link.",
-        )
-        return
-      }
-
+      await signInWithGoogle()
+      // Our stub throws by default; if it resolves, redirect to dashboard
       router.push("/dashboard")
     } catch (error: any) {
       toast({

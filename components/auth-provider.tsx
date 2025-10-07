@@ -2,18 +2,17 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
-import {
-  type User,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  GoogleAuthProvider,
-  signInWithPopup,
-} from "firebase/auth"
-import { auth } from "@/lib/firebase"
+
+// NOTE: Firebase removed. This AuthProvider implements a minimal client-side
+// auth shim so the UI and routes remain functional until a real backend is
+// connected (PostgreSQL planned later).
+
+// Minimal User shape used by the app (subset of Firebase User)
+type User = {
+  uid: string
+  email?: string | null
+  emailVerified?: boolean
+}
 
 interface AuthContextType {
   user: User | null
@@ -32,57 +31,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // On mount, simulate no authenticated user. In a real implementation
+  // we'd check cookies/sessions or tokens.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user)
-      setLoading(false)
-    })
-    return unsubscribe
+    setLoading(false)
   }, [])
 
-const signIn = async (email: string, password: string) => {
-  try {
-    const result = await signInWithEmailAndPassword(auth, email, password)
+  // Hardcoded sign-in logic as requested.
+  const signIn = async (email: string, password: string) => {
+    // Simulate network latency
+    await new Promise((r) => setTimeout(r, 250))
 
-    if (!result.user.emailVerified) {
-      await signOut(auth) // ensure session is cleared
-      setUser(null)
-      throw new Error("EmailUnverified")
+    if (email === "hello@gmail.com" && password === "aminfahim123") {
+      const u: User = {
+        uid: "local-uid-1",
+        email,
+        emailVerified: true,
+      }
+      setUser(u)
+      return u as any
     }
 
-    return result.user
-  } catch (error: any) {
-    if (error.code === "auth/user-not-found") {
-      throw new Error("UserNotFound")
-    }
-    if (error.code === "auth/wrong-password") {
-      throw new Error("WrongPassword")
-    }
-    if (error.code === "auth/invalid-email") {
-      throw new Error("InvalidEmail")
-    }
-    throw error // rethrow for any other case
+    // Keep error messages consistent with previous code paths where possible
+    const err: any = new Error("Invalid credentials")
+    err.code = "auth/invalid-credential"
+    throw err
   }
-}
 
+  // No-op signUp for now; UI will show the success modal without backend integration.
   const signUp = async (email: string, password: string) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password)
-    await sendEmailVerification(result.user)
+    // simulate async operation
+    await new Promise((r) => setTimeout(r, 250))
+    // Intentionally do not create any backend user yet.
+    return
   }
 
+  // Google sign-in is not available in this stubbed setup.
   const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider()
-    const result = await signInWithPopup(auth, provider)
-    return result.user
+    await new Promise((r) => setTimeout(r, 250))
+    const err: any = new Error("Google sign-in is disabled in this build")
+    err.code = "auth/google-disabled"
+    throw err
   }
 
   const logout = async () => {
-    await signOut(auth)
-    setUser(null) // ✅ clear user state after sign out
+    // Local logout only
+    setUser(null)
   }
 
   const resetPassword = async (email: string) => {
-    await sendPasswordResetEmail(auth, email)
+    // Simulate reset email sent. No backend integration for now.
+    await new Promise((r) => setTimeout(r, 200))
+    return
   }
 
   const value: AuthContextType = {

@@ -154,14 +154,16 @@ export default function SignupPage() {
     setIsLoading(true)
     try {
       await signUp(formData.email, formData.password)
+      // Since backend integration is disabled, we simulate success and show the modal.
       setSuccessModal({ isOpen: true, type: "email" })
     } catch (error: any) {
-      if (error.code === "auth/email-already-in-use") {
+      // Generic handling for any errors from the stubbed provider
+      if (error && error.code === "auth/email-already-in-use") {
         setErrorMessage("This email is already registered. Please use a different email or sign in instead.")
       } else {
         toast({
           title: "Error",
-          description: error.message,
+          description: error?.message ?? "An error occurred while creating account.",
           variant: "destructive",
         })
       }
