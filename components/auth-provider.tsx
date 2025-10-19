@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback } from "react"
-import { signup, login, googleSignUp, logout as logoutApi, verifyEmail } from "@/lib/api"
+import { signup, login, googleSignUp, googleSignIn, logout as logoutApi, verifyEmail } from "@/lib/api"
 
 interface AuthResponseData {
   id?: number
@@ -12,7 +12,8 @@ interface AuthResponseData {
 interface AuthContextType {
   signup: (name: string, email: string, password: string) => Promise<void>
   login: (email: string, password: string) => Promise<void>
-  googleSignUp: () => Promise<void>
+  googleSignUp: (token?: string) => Promise<void>
+  googleSignIn: (token: string) => Promise<void>
   logout: () => Promise<void>
   verifyEmail: (token: string) => Promise<void>
   user: { email: string; name?: string } | null
@@ -45,10 +46,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const handleGoogleSignUp = useCallback(async (): Promise<void> => {
+  const handleGoogleSignUp = useCallback(async (token?: string): Promise<void> => {
     try {
+      // legacy compatibility: if token provided, use googleSignIn
+      if (token) {
+        const response = await googleSignIn(token)
+        setUser({ email: response.email, name: (response as any).name || undefined })
+        setIsAuthenticated(true)
+        return
+      }
+
+      // otherwise call the placeholder endpoint
       const response: AuthResponseData = await googleSignUp()
       setUser({ email: response.email })
+      setIsAuthenticated(true)
+    } catch (error: any) {
+      throw error
+    }
+  }, [])
+
+  const handleGoogleSignIn = useCallback(async (token: string): Promise<void> => {
+    try {
+      const response = await googleSignIn(token)
+      setUser({ email: response.email, name: (response as any).name || undefined })
       setIsAuthenticated(true)
     } catch (error: any) {
       throw error
@@ -76,7 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const contextValue: AuthContextType = {
     signup: handleSignup,
     login: handleLogin,
-    googleSignUp: handleGoogleSignUp,
+  googleSignUp: handleGoogleSignUp,
+  googleSignIn: handleGoogleSignIn,
     logout: handleLogout,
     verifyEmail: handleVerifyEmail,
     user,
