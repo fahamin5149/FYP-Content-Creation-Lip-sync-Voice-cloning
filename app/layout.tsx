@@ -5,13 +5,14 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/components/auth-provider"
 import { Suspense } from "react"
+import { GoogleOAuthProvider } from "@react-oauth/google"
 import "./globals.css"
 
 export const metadata: Metadata = {
   title: "Urdu AI Video Creator",
   description: "Created by Amin",
   icons: {
-    icon: "/weblogo-removebg-preview.png",  
+    icon: "/weblogo-removebg-preview.png",
   },
 }
 
@@ -24,7 +25,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <Suspense fallback={<div>Loading...</div>}>
-          <AuthProvider>{children}</AuthProvider>
+          <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
+            <AuthProvider>{children}</AuthProvider>
+          </GoogleOAuthProvider>
         </Suspense>
         <Analytics />
       </body>
