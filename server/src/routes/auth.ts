@@ -542,7 +542,10 @@ router.post("/google-signin", async (req: Request, res: Response) => {
 
     const googleId = payload.sub
     const email = payload.email
-    const name = payload.name || ""
+    const name = payload.name || 
+          `${payload.given_name || ''} ${payload.family_name || ''}`.trim() || 
+          payload.email.split('@')[0] || 
+          "User"
     const emailVerified = payload.email_verified || false
 
     if (!googleId || !email) {
