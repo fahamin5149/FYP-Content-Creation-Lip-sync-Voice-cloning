@@ -2,39 +2,166 @@
 
 import type React from "react"
 import { useState } from "react"
-import { CheckCircle, XCircle, Eye, EyeOff } from "lucide-react"
+import { CheckCircle, XCircle, Eye, EyeOff, AlertCircle, UserPlus, User, Mail, Lock, Building, X } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useGoogleLogin } from "@react-oauth/google"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
 
-// Password validation utility
-const passwordChecks = [
-  {
-    label: "At least 6 characters",
-    test: (pw: string) => pw.length >= 6,
-  },
-  {
-    label: "At least one uppercase letter",
-    test: (pw: string) => /[A-Z]/.test(pw),
-  },
-  {
-    label: "At least one lowercase letter",
-    test: (pw: string) => /[a-z]/.test(pw),
-  },
-  {
-    label: "At least one number",
-    test: (pw: string) => /[0-9]/.test(pw),
-  },
-  {
-    label: "At least one special character",
-    test: (pw: string) => /[^A-Za-z0-9]/.test(pw),
-  },
-]
+// Validation functions
+const validateFullName = (name: string): string | null => {
+  const trimmedName = name.trim()
+
+  if (!trimmedName || trimmedName.length === 0) {
+    return "Full name is required."
+  }
+
+  if (trimmedName.length < 3) {
+    return "Full name must be at least 3 characters long."
+  }
+
+  if (trimmedName.length > 50) {
+    return "Full name must not exceed 50 characters."
+  }
+
+  const validNameRegex = /^[A-Za-z]+(\s[A-Za-z]+)*$/
+  if (!validNameRegex.test(trimmedName)) {
+    return "Full name must contain only English letters and single spaces between words."
+  }
+
+  if (/\d/.test(trimmedName)) {
+    return "Full name cannot contain numbers."
+  }
+
+  if (/[!@#$%^&*(),.?":{}|<>[\]\\/_+=`~;'-]/.test(trimmedName)) {
+    return "Full name cannot contain special characters."
+  }
+
+  if (/[^\x00-\x7F]/.test(trimmedName)) {
+    return "Full name must contain only English letters."
+  }
+
+  const htmlTagRegex = /<[^>]*>/g
+  if (htmlTagRegex.test(trimmedName)) {
+    return "Invalid input detected."
+  }
+
+  if (/\s{2,}/.test(trimmedName)) {
+    return "Full name cannot contain multiple consecutive spaces."
+  }
+
+  return null
+}
+
+const validatePassword = (pass: string): string | null => {
+  if (pass !== pass.trim()) {
+    return "Password cannot have leading or trailing spaces."
+  }
+
+  if (/\s/.test(pass)) {
+    return "Spaces are not allowed in the password."
+  }
+
+  if (pass.length <= 10) {
+    return "Password must be longer than 10 characters."
+  }
+
+  if (pass.length > 128) {
+    return "Password must not exceed 128 characters."
+  }
+
+  if (/[^\x00-\x7F]/.test(pass)) {
+    return "Password cannot contain emojis or special Unicode characters."
+  }
+
+  if (!/[!@#$%^&*(),.?":{}|<>\[\]_\/~'`=+\-\\;]/.test(pass)) {
+    return "Password must include at least one special character"
+  }
+
+  if (!/\d/.test(pass)) {
+    return "Password must include at least one number."
+  }
+
+  if (!/[A-Z]/.test(pass)) {
+    return "Password must include at least one capital letter."
+  }
+
+  if (!/[a-z]/.test(pass)) {
+    return "Password must include at least one lowercase letter."
+  }
+
+  return null
+}
+
+const calculatePasswordStrength = (
+  pass: string
+): { strength: number; label: string; color: string; gradient: string } => {
+  if (pass.length === 0) {
+    return { strength: 0, label: "Enter password", color: "bg-slate-300", gradient: "from-slate-300 to-slate-400" }
+  }
+
+  let strength = 0
+
+  if (pass.length > 10) strength += 20
+  if (pass.length > 15) strength += 10
+  if (pass.length > 20) strength += 10
+
+  const specialRegex = /[!@#$%^&*(),.?":{}|<>\[\]_\/~'`=+\-\\;]/g
+
+  if (specialRegex.test(pass)) strength += 20
+  if (/\d/.test(pass)) strength += 15
+  if (/[A-Z]/.test(pass)) strength += 15
+  if (/[a-z]/.test(pass)) strength += 10
+
+  const specialCount = (pass.match(specialRegex) || []).length
+  const numberCount = (pass.match(/\d/g) || []).length
+  const upperCount = (pass.match(/[A-Z]/g) || []).length
+
+  if (specialCount > 1) strength += 5
+  if (numberCount > 1) strength += 5
+  if (upperCount > 1) strength += 5
+
+  const hasInvalidSpaces = pass !== pass.trim() || /\s/.test(pass)
+  const hasEmojis = /[^\x00-\x7F]/.test(pass)
+  const tooLong = pass.length > 128
+
+  let label = "Very Weak"
+  let color = "bg-red-500"
+  let gradient = "from-red-500 to-red-600"
+
+  if (hasInvalidSpaces || hasEmojis || tooLong) {
+    label = "Invalid"
+    color = "bg-red-600"
+    gradient = "from-red-600 to-red-700"
+  } else if (strength >= 85) {
+    label = "Very Strong"
+    color = "bg-green-500"
+    gradient = "from-green-500 to-green-600"
+  } else if (strength >= 70) {
+    label = "Strong"
+    color = "bg-green-400"
+    gradient = "from-green-400 to-green-500"
+  } else if (strength >= 50) {
+    label = "Good"
+    color = "bg-yellow-500"
+    gradient = "from-yellow-500 to-yellow-600"
+  } else if (strength >= 30) {
+    label = "Fair"
+    color = "bg-orange-500"
+    gradient = "from-orange-500 to-orange-600"
+  } else {
+    label = "Weak"
+    color = "bg-red-500"
+    gradient = "from-red-500 to-red-600"
+  }
+
+  return { strength: Math.min(strength, 100), label, color, gradient }
+}
 
 const SuccessModal = ({
   isOpen,
@@ -58,6 +185,13 @@ const SuccessModal = ({
         animate={{ opacity: 1, scale: 1 }}
         className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 max-w-md w-full text-center"
       >
+      <button
+          aria-label="Close"
+          onClick={onClose}
+          className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-200"
+        >
+          <X className="h-5 w-5" />
+        </button>
         <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -69,7 +203,7 @@ const SuccessModal = ({
             <h3 className="text-xl font-semibold text-white mb-2">Check Your Email</h3>
             <p className="text-zinc-400 mb-6">
               A verification email has been sent to <span className="text-white font-medium">{userEmail}</span>. Check
-              your inbox and spam folder. Please click the link in the email to verify your account before signing in.
+              your inbox and spam folder. Please click the link in the email to verify your account before login.
             </p>
             <Button onClick={onRedirect} className="w-full bg-[#e78a53] hover:bg-[#e78a53]/90 text-white">
               Go to Sign In
@@ -91,7 +225,7 @@ const SuccessModal = ({
 
 export default function SignupPage() {
   const router = useRouter()
-  const { signup, googleSignUp } = useAuth()
+  const { signup, googleSignUp, googleSignIn } = useAuth()
   const { toast } = useToast()
 
   const [formData, setFormData] = useState({
@@ -101,40 +235,142 @@ export default function SignupPage() {
     confirmPassword: "",
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [successModal, setSuccessModal] = useState<{ isOpen: boolean; type: "email" | "google" }>({
     isOpen: false,
     type: "email",
   })
-  const [errorMessage, setErrorMessage] = useState("")
+  
+  // Error states for each field
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [generalError, setGeneralError] = useState("")
   const [passwordTouched, setPasswordTouched] = useState(false)
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const passwordStrength = calculatePasswordStrength(formData.password)
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    const allowedCharsRegex = /^[A-Za-z\s]*$/
+    
+    if (!allowedCharsRegex.test(value)) {
+      return
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      name: value,
     }))
-    if (e.target.name === "password") setPasswordTouched(true)
-    if (errorMessage) setErrorMessage("")
+    
+    if (nameError) {
+      setNameError(null)
+    }
+    if (generalError) {
+      setGeneralError("")
+    }
   }
+
+  const handleNameBlur = () => {
+    const error = validateFullName(formData.name)
+    setNameError(error)
+  }
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setFormData((prev) => ({
+      ...prev,
+      email: value,
+    }))
+    
+    if (emailError === "This email is already registered. Please sign in instead.") {
+      setEmailError(null)
+    }
+    if (generalError) {
+      setGeneralError("")
+    }
+  }
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    
+    if (/[^\x00-\x7F]/.test(value)) {
+      return
+    }
+
+    if (value.length > 128) {
+      return
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      password: value,
+    }))
+    
+    setPasswordTouched(true)
+    const error = validatePassword(value)
+    setPasswordError(error)
+    
+    if (generalError) {
+      setGeneralError("")
+    }
+  }
+
+  const handlePasswordBlur = () => {
+    const error = validatePassword(formData.password)
+    setPasswordError(error)
+  }
+
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      confirmPassword: e.target.value,
+    }))
+    if (generalError) {
+      setGeneralError("")
+    }
+  }
+
+  const isPasswordValidGlobally = (): boolean => {
+    if (formData.password.length === 0) return false
+    return validatePassword(formData.password) === null
+  }
+
+  const isFormValid =
+    formData.name.trim().length > 0 &&
+    formData.email.trim().length > 0 &&
+    formData.password.trim().length > 0 &&
+    formData.confirmPassword.trim().length > 0 &&
+    !validateFullName(formData.name) &&
+    !validatePassword(formData.password) &&
+    !emailError &&
+    !nameError &&
+    !passwordError &&
+    formData.password === formData.confirmPassword
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setErrorMessage("")
+    setGeneralError("")
 
-    // Validate password requirements
-    const failedChecks = passwordChecks.filter((check) => !check.test(formData.password))
-    if (failedChecks.length > 0) {
-      toast({
-        title: "Error",
-        description: `Password requirements not met: ${failedChecks.map((c) => c.label).join(", ")}`,
-        variant: "destructive",
-      })
+    const trimmedName = formData.name.trim()
+    const nameValidationError = validateFullName(trimmedName)
+    if (nameValidationError) {
+      setNameError(nameValidationError)
+      setGeneralError(nameValidationError)
+      return
+    }
+
+    const passwordValidationError = validatePassword(formData.password)
+    if (passwordValidationError) {
+      setPasswordError(passwordValidationError)
+      setGeneralError(passwordValidationError)
       return
     }
 
     if (formData.password !== formData.confirmPassword) {
+      setGeneralError("Passwords do not match")
       toast({
         title: "Error",
         description: "Passwords do not match",
@@ -145,11 +381,16 @@ export default function SignupPage() {
 
     setIsLoading(true)
     try {
-      await signup(formData.name, formData.email, formData.password)
+      await signup(trimmedName, formData.email, formData.password)
       setSuccessModal({ isOpen: true, type: "email" })
     } catch (error: any) {
       const errorMsg = error?.message || "An error occurred while creating account."
-      setErrorMessage(errorMsg)
+      setGeneralError(errorMsg)
+      
+      if (errorMsg.toLowerCase().includes("already registered") || errorMsg.toLowerCase().includes("already in use")) {
+        setEmailError("This email is already registered. Please sign in instead.")
+      }
+      
       toast({
         title: "Error",
         description: errorMsg,
@@ -160,22 +401,32 @@ export default function SignupPage() {
     }
   }
 
-  const handleGoogleSignUp = async () => {
-    setIsLoading(true)
-    setErrorMessage("")
-    try {
-      await googleSignUp()
-      setSuccessModal({ isOpen: true, type: "google" })
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Google signup failed",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsLoading(true)
+      setGoogleLoading(true)
+      setGeneralError("")
+      try {
+        // tokenResponse may contain credential or access_token depending on flow
+        const token = (tokenResponse as any).credential || (tokenResponse as any).access_token || (tokenResponse as any).code
+        if (!token) throw new Error("Failed to obtain Google token")
+        await googleSignIn(token)
+        setSuccessModal({ isOpen: true, type: "google" })
+      } catch (error: any) {
+        const errorMsg = error?.message || "Google signup failed"
+        setGeneralError(errorMsg)
+        toast({ title: "Error", description: errorMsg, variant: "destructive" })
+      } finally {
+        setIsLoading(false)
+        setGoogleLoading(false)
+      }
+    },
+    onError: (err) => {
+      const msg = (err as any)?.error || "Google authentication failed"
+      setGeneralError(msg)
+      toast({ title: "Error", description: msg, variant: "destructive" })
+    },
+  })
 
   const handleModalRedirect = () => {
     setSuccessModal({ isOpen: false, type: "email" })
@@ -215,13 +466,14 @@ export default function SignupPage() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Create account</h1>
           <p className="text-zinc-400">Join thousands of creators building with Urdu AI Platform</p>
-          {errorMessage && (
+          {generalError && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
+              className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2"
             >
-              <p className="text-red-400 text-sm">{errorMessage}</p>
+              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-red-400" />
+              <p className="text-red-400 text-sm">{generalError}</p>
             </motion.div>
           )}
         </div>
@@ -233,54 +485,90 @@ export default function SignupPage() {
           className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-2xl p-8"
         >
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Name Input */}
             <div className="space-y-2">
               <Label htmlFor="name" className="text-white">
                 Full Name
               </Label>
-              <Input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="Enter your full name"
-                value={formData.name}
-                onChange={handleChange}
-                className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20"
-                required
-              />
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-zinc-400" />
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={formData.name}
+                  onChange={handleNameChange}
+                  onBlur={handleNameBlur}
+                  className={`pl-10 bg-zinc-800/50 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20 ${
+                    nameError ? "border-red-500 focus:border-red-500" : "border-zinc-700"
+                  }`}
+                  required
+                  disabled={isLoading || googleLoading}
+                  maxLength={50}
+                />
+              </div>
+              {nameError && (
+                <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                  <X className="h-3 w-3" />
+                  {nameError}
+                </p>
+              )}
+              <p className="text-xs text-zinc-500">
+                3-50 characters, English letters only, single spaces between words
+              </p>
             </div>
 
+            {/* Email Input */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-white">
                 Email
               </Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email"
-                value={formData.email}
-                onChange={handleChange}
-                className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20"
-                required
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-zinc-400" />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="example@email.com"
+                  value={formData.email}
+                  onChange={handleEmailChange}
+                  className={`pl-10 bg-zinc-800/50 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20 ${
+                    emailError ? "border-red-500 focus:border-red-500" : "border-zinc-700"
+                  }`}
+                  required
+                  disabled={isLoading || googleLoading}
+                />
+              </div>
+              {emailError && (
+                <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                  <X className="h-3 w-3" />
+                  {emailError}
+                </p>
+              )}
             </div>
 
+            {/* Password Input */}
             <div className="space-y-2">
               <Label htmlFor="password" className="text-white">
                 Password
               </Label>
               <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-zinc-400" />
                 <Input
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a password"
                   value={formData.password}
-                  onChange={handleChange}
-                  onBlur={() => setPasswordTouched(true)}
-                  className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20 pr-10"
+                  onChange={handlePasswordChange}
+                  onBlur={handlePasswordBlur}
+                  className={`pl-10 pr-10 bg-zinc-800/50 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20 ${
+                    passwordError ? "border-red-500 focus:border-red-500" : "border-zinc-700"
+                  }`}
                   required
                   autoComplete="new-password"
+                  disabled={isLoading || googleLoading}
                 />
                 <button
                   type="button"
@@ -291,39 +579,71 @@ export default function SignupPage() {
                 </button>
               </div>
 
-              {passwordTouched && (
-                <div className="mt-2 space-y-1">
-                  {passwordChecks.map((check) => {
-                    const passed = check.test(formData.password)
-                    return (
-                      <div key={check.label} className="flex items-center text-sm gap-2">
-                        {passed ? (
-                          <CheckCircle size={16} className="text-green-500" />
-                        ) : (
-                          <XCircle size={16} className="text-red-500" />
-                        )}
-                        <span className={passed ? "text-green-500" : "text-red-400"}>{check.label}</span>
-                      </div>
-                    )
-                  })}
+              {passwordError && (
+                <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                  <X className="h-3 w-3" />
+                  {passwordError}
+                </p>
+              )}
+
+              {/* Password Strength Meter */}
+              {formData.password.length > 0 && (
+                <div className="space-y-3 mt-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-400 font-medium">Password Strength</span>
+                    <span
+                      className={`font-bold ${
+                        passwordStrength.label === "Very Strong"
+                          ? "text-green-400"
+                          : passwordStrength.label === "Strong"
+                            ? "text-green-400"
+                            : passwordStrength.label === "Good"
+                              ? "text-yellow-400"
+                              : passwordStrength.label === "Fair"
+                                ? "text-orange-400"
+                                : passwordStrength.label === "Invalid"
+                                  ? "text-red-500"
+                                  : "text-red-400"
+                      }`}
+                    >
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <div className="relative w-full bg-zinc-700 rounded-full h-3 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r ${passwordStrength.gradient}`}
+                      style={{ width: `${passwordStrength.strength}%` }}
+                    >
+                      <div className="h-full w-full bg-white/20 animate-pulse"></div>
+                    </div>
+                  </div>
+                  {!isPasswordValidGlobally() && formData.password.length > 0 && (
+                    <p className="text-xs text-zinc-400 mt-2 bg-zinc-800/50 px-3 py-2 rounded-lg border border-zinc-700">
+                      <span className="font-medium">Tip:</span> Use uppercase, lowercase, numbers, and special
+                      characters (11-128 chars)
+                    </p>
+                  )}
                 </div>
               )}
             </div>
 
+            {/* Confirm Password Input */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-white">
                 Confirm Password
               </Label>
               <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-zinc-400" />
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm your password"
                   value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20 pr-10"
+                  onChange={handleConfirmPasswordChange}
+                  className={`pl-10 pr-10 bg-zinc-800/50 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20 border-zinc-700`}
                   required
+                  disabled={isLoading || googleLoading}
                 />
                 <button
                   type="button"
@@ -337,8 +657,12 @@ export default function SignupPage() {
 
             <Button
               type="submit"
-              disabled={isLoading}
-              className="w-full bg-[#e78a53] hover:bg-[#e78a53]/90 text-white font-medium py-3 rounded-xl transition-colors"
+              disabled={!isFormValid || isLoading || googleLoading}
+              className={`w-full text-white font-medium py-3 rounded-xl transition-colors ${
+                !isFormValid || isLoading || googleLoading
+                  ? "bg-zinc-600 cursor-not-allowed opacity-60"
+                  : "bg-[#e78a53] hover:bg-[#e78a53]/90"
+              }`}
             >
               {isLoading ? "Creating account..." : "Create account"}
             </Button>
@@ -373,31 +697,40 @@ export default function SignupPage() {
             <Button
               variant="outline"
               className="bg-zinc-900/50 border-zinc-800 text-zinc-300 hover:bg-white hover:text-black hover:border-white transition-all duration-200 group"
-              onClick={handleGoogleSignUp}
-              disabled={isLoading}
+              onClick={() => googleLogin()}
+              disabled={isLoading || googleLoading}
             >
-              <svg
-                className="w-5 h-5 mr-2 text-zinc-300 group-hover:text-black transition-colors duration-200"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Sign up with Google
+              {googleLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Signing up with Google...</span>
+                </div>
+              ) : (
+                <>
+                  <svg
+                    className="w-5 h-5 mr-2 text-zinc-300 group-hover:text-black transition-colors duration-200"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  Sign up with Google
+                </>
+              )}
             </Button>
           </div>
         </motion.div>

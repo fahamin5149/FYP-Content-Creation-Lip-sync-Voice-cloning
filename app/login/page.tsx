@@ -5,6 +5,7 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useGoogleLogin } from "@react-oauth/google"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,7 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login, googleSignUp } = useAuth()
+  const { login, googleSignUp, googleSignIn } = useAuth()
   const { toast } = useToast()
 
   const [email, setEmail] = useState("")
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [emailVerificationError, setEmailVerificationError] = useState("")
   const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,22 +45,27 @@ export default function LoginPage() {
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true)
-    setEmailVerificationError("")
-    try {
-      await googleSignUp()
-      router.push("/dashboard")
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Google sign in failed",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsLoading(true)
+      setEmailVerificationError("")
+      try {
+        const token = (tokenResponse as any).credential || (tokenResponse as any).id_token || (tokenResponse as any).access_token || (tokenResponse as any).code
+        if (!token) throw new Error("Failed to obtain Google token")
+        await googleSignIn(token)
+        router.push("/dashboard")
+      } catch (error: any) {
+        toast({ title: "Error", description: error.message || "Google sign in failed", variant: "destructive" })
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    onError: (err) => {
+      const msg = (err as any)?.error || "Google authentication failed"
+      toast({ title: "Error", description: msg, variant: "destructive" })
+    },
+    scope: "openid email profile", // Add profile scope to get user name
+  })
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value)
@@ -77,28 +84,18 @@ export default function LoginPage() {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) {
-      toast({
-        title: "Error",
-        description: "Please enter your email address",
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: "Please enter your email address", variant: "destructive" })
       return
     }
 
     setIsLoading(true)
+    setForgotSent(false)
     try {
-      // TODO: Implement resetPassword function in auth context and API
-      toast({
-        title: "Email Sent!",
-        description: "Please check your email for the password reset link.",
-      })
-      setShowForgotPassword(false)
+      const res = await (await import("@/lib/api")).forgotPassword(email)
+      toast({ title: "Email Sent!", description: res?.message || "Please check your email for the password reset link." })
+      setForgotSent(true)
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send reset email",
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: error.message || "Failed to send reset email", variant: "destructive" })
     } finally {
       setIsLoading(false)
     }
@@ -223,37 +220,54 @@ export default function LoginPage() {
               </div>
             </>
           ) : (
-            <form onSubmit={handleForgotPassword} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-white">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20"
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-[#e78a53] hover:bg-[#e78a53]/90 text-white font-medium py-3 rounded-xl transition-colors"
-              >
-                {isLoading ? "Sending..." : "Send Reset Email"}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-zinc-300 hover:text-white"
-                onClick={() => setShowForgotPassword(false)}
-              >
-                Back to Sign In
-              </Button>
-            </form>
+            <div>
+              {!forgotSent ? (
+                <form onSubmit={handleForgotPassword} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-white">
+                      Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20"
+                      required
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-[#e78a53] hover:bg-[#e78a53]/90 text-white font-medium py-3 rounded-xl transition-colors"
+                  >
+                    {isLoading ? "Sending..." : "Send Reset Email"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full text-zinc-300 hover:text-white"
+                    onClick={() => setShowForgotPassword(false)}
+                  >
+                    Back to Sign In
+                  </Button>
+                </form>
+              ) : (
+                <div className="space-y-4 text-center">
+                  <p className="text-zinc-300">If an account with that email exists, we've sent a password reset link.</p>
+                  <Button
+                    onClick={() => {
+                      setShowForgotPassword(false)
+                      setForgotSent(false)
+                    }}
+                    className="w-full bg-[#e78a53] hover:bg-[#e78a53]/90 text-white font-medium py-3 rounded-xl transition-colors"
+                  >
+                    Back to Sign In
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
         </motion.div>
 
@@ -277,7 +291,7 @@ export default function LoginPage() {
               <Button
                 variant="outline"
                 className="bg-zinc-900/50 border-zinc-800 text-zinc-300 hover:bg-white hover:text-black hover:border-white transition-all duration-200 group"
-                onClick={handleGoogleSignIn}
+                onClick={() => googleLogin()}
                 disabled={isLoading}
               >
                 <svg

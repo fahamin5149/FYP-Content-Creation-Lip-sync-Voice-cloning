@@ -50,7 +50,7 @@ async function apiCall<T>(
 //-------------------------------------------------------
 
 export const signup = async (name: string, email: string, password: string): Promise<AuthResponseData> => {
-  console.log("API Signup called with:", { name, email, password });
+  // console.log("API Signup called with:", { name, email, password });
   return await apiCall<AuthResponseData>("/api/auth/signup", {
     method: "POST",
     body: JSON.stringify({ name, email, password }),
@@ -65,8 +65,16 @@ export const login = async (email: string, password: string): Promise<AuthRespon
 }
 
 export const googleSignUp = async (): Promise<AuthResponseData> => {
+  // Deprecated alias kept for compatibility; prefer googleSignIn(token)
   return await apiCall<AuthResponseData>("/api/auth/google-signup", {
     method: "POST",
+  })
+}
+
+export const googleSignIn = async (token: string): Promise<AuthResponseData> => {
+  return await apiCall<AuthResponseData>("/api/auth/google-signin", {
+    method: "POST",
+    body: JSON.stringify({ token }),
   })
 }
 
@@ -80,5 +88,26 @@ export const verifyEmail = async (token: string): Promise<AuthResponseData> => {
   return await apiCall<AuthResponseData>("/api/auth/verify-email", {
     method: "POST",
     body: JSON.stringify({ token }),
+  })
+}
+
+export const forgotPassword = async (email: string): Promise<{ message?: string }> => {
+  return await apiCall<{ message?: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  })
+}
+
+export const validateResetToken = async (token: string): Promise<{ email?: string }> => {
+  return await apiCall<{ email?: string }>("/api/auth/validate-reset-token", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  })
+}
+
+export const resetPassword = async (token: string, password: string, confirmPassword: string): Promise<{ message?: string }> => {
+  return await apiCall<{ message?: string }>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password, confirmPassword }),
   })
 }
