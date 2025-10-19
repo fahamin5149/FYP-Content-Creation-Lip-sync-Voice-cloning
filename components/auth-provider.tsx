@@ -1,19 +1,20 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback } from "react"
-import { api } from "@/lib/api"
+import { signup, login, googleSignUp, logout as logoutApi, verifyEmail } from "@/lib/api"
 
-interface AuthResponse {
+interface AuthResponseData {
   id?: number
   email: string
   message?: string
 }
 
 interface AuthContextType {
-  signUp: (email: string, password: string) => Promise<void>
-  signInWithGoogle: () => Promise<void>
-  signIn: (email: string, password: string) => Promise<void>
+  signup: (name: string, email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
+  googleSignUp: () => Promise<void>
   logout: () => Promise<void>
+  verifyEmail: (token: string) => Promise<void>
   user: { email: string; name?: string } | null
   isAuthenticated: boolean
 }
@@ -24,10 +25,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<{ email: string; name?: string } | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  const signUp = useCallback(async (email: string, password: string): Promise<void> => {
+  const handleSignup = useCallback(async (name: string, email: string, password: string): Promise<void> => {
     try {
-      // console.log("AuthProvider signup called with", email, password)
-      const response = await api.auth.signup({ email, password }) as AuthResponse
+      const response: AuthResponseData = await signup(name, email, password)
+      setUser({ email: response.email, name: (response as any).name || undefined })
+      setIsAuthenticated(true)
+    } catch (error: any) {
+      throw error
+    }
+  }, [])
+
+  const handleLogin = useCallback(async (email: string, password: string): Promise<void> => {
+    try {
+      const response: AuthResponseData = await login(email, password)
       setUser({ email: response.email })
       setIsAuthenticated(true)
     } catch (error: any) {
@@ -35,9 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const signIn = useCallback(async (email: string, password: string): Promise<void> => {
+  const handleGoogleSignUp = useCallback(async (): Promise<void> => {
     try {
-      const response = await api.auth.login({ email, password }) as AuthResponse
+      const response: AuthResponseData = await googleSignUp()
       setUser({ email: response.email })
       setIsAuthenticated(true)
     } catch (error: any) {
@@ -45,19 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const signInWithGoogle = useCallback(async (): Promise<void> => {
+  const handleLogout = useCallback(async (): Promise<void> => {
     try {
-      const response = await api.auth.googleSignUp() as AuthResponse
-      setUser({ email: response.email })
-      setIsAuthenticated(true)
-    } catch (error: any) {
-      throw error
-    }
-  }, [])
-
-  const logout = useCallback(async (): Promise<void> => {
-    try {
-      await api.auth.logout()
+      await logoutApi()
       setUser(null)
       setIsAuthenticated(false)
     } catch (error: any) {
@@ -65,11 +65,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  return (
-    <AuthContext.Provider value={{ signUp, signIn, signInWithGoogle, logout, user, isAuthenticated }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  const handleVerifyEmail = useCallback(async (token: string): Promise<void> => {
+    try {
+      await verifyEmail(token)
+    } catch (error: any) {
+      throw error
+    }
+  }, [])
+
+  const contextValue: AuthContextType = {
+    signup: handleSignup,
+    login: handleLogin,
+    googleSignUp: handleGoogleSignUp,
+    logout: handleLogout,
+    verifyEmail: handleVerifyEmail,
+    user,
+    isAuthenticated,
+  }
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

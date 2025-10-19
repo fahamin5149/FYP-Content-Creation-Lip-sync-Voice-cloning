@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+//lib/api.ts
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
 interface ApiResponse<T> {
   success: boolean
@@ -12,11 +13,12 @@ interface AuthResponseData {
   message?: string
 }
 
+// Generic API call handler
 async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`
+  const url = `${API_URL}${endpoint}`
 
   const defaultOptions: RequestInit = {
     headers: {
@@ -43,34 +45,40 @@ async function apiCall<T>(
   }
 }
 
-export const api = {
-  auth: {
-    signup: async (payload: { email: string; password: string }): Promise<AuthResponseData> =>
-      apiCall<AuthResponseData>("/api/auth/signup", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
+//-------------------------------------------------------
+//------------ Auth API's  ------------------------------
+//-------------------------------------------------------
 
-    login: async (payload: { email: string; password: string }): Promise<AuthResponseData> =>
-      apiCall<AuthResponseData>("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
+export const signup = async (name: string, email: string, password: string): Promise<AuthResponseData> => {
+  console.log("API Signup called with:", { name, email, password });
+  return await apiCall<AuthResponseData>("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({ name, email, password }),
+  })
+}
 
-    googleSignUp: async (): Promise<AuthResponseData> =>
-      apiCall<AuthResponseData>("/api/auth/google-signup", {
-        method: "POST",
-      }),
+export const login = async (email: string, password: string): Promise<AuthResponseData> => {
+  return await apiCall<AuthResponseData>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  })
+}
 
-    logout: async (): Promise<AuthResponseData> =>
-      apiCall<AuthResponseData>("/api/auth/logout", {
-        method: "POST",
-      }),
+export const googleSignUp = async (): Promise<AuthResponseData> => {
+  return await apiCall<AuthResponseData>("/api/auth/google-signup", {
+    method: "POST",
+  })
+}
 
-    verifyEmail: async (token: string): Promise<AuthResponseData> =>
-      apiCall<AuthResponseData>("/api/auth/verify-email", {
-        method: "POST",
-        body: JSON.stringify({ token }),
-      }),
-  },
+export const logout = async (): Promise<AuthResponseData> => {
+  return await apiCall<AuthResponseData>("/api/auth/logout", {
+    method: "POST",
+  })
+}
+
+export const verifyEmail = async (token: string): Promise<AuthResponseData> => {
+  return await apiCall<AuthResponseData>("/api/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  })
 }

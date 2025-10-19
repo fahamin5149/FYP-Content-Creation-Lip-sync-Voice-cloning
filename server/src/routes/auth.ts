@@ -24,11 +24,18 @@ const validatePassword = (password: string): boolean => {
 // ✅ SIGNUP ROUTE
 router.post("/signup", async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body
+    const { name, email, password } = req.body
 
-    console.log("Signup request received with", email, password)
+    console.log("Signup request received with", name, email, password)
 
     // Validation
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "Full name is required",
+      })
+    }
+
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -63,10 +70,10 @@ router.post("/signup", async (req: Request, res: Response) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Insert user into database
+    // Insert user into database (store full_name)
     const result = await pool.query(
-      "INSERT INTO users (email, password_hash, created_at) VALUES ($1, $2, NOW()) RETURNING id, email",
-      [email, hashedPassword],
+      "INSERT INTO users (full_name, email, password_hash, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, email, full_name",
+      [name.trim(), email, hashedPassword],
     )
 
     const newUser = result.rows[0]
@@ -76,6 +83,7 @@ router.post("/signup", async (req: Request, res: Response) => {
       data: {
         id: newUser.id,
         email: newUser.email,
+        name: newUser.full_name,
         message: "Account created successfully. Please verify your email.",
       },
     })

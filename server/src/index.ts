@@ -1,57 +1,40 @@
-import express from "express"
-import cors from "cors"
+//server/src/index.ts
 import dotenv from "dotenv"
-import { pool } from "./db/connect.js"
-import authRoutes from "./routes/auth.js"
-
 dotenv.config()
 
+console.log("1. Environment loaded first")
+
+import express from "express"
+import cors from "cors"
+
+// Routers
+import authRoutes from "./routes/auth.js"
+
+console.log("2. Starting server setup...")
+console.log("3. Routers imported successfully")
+
 const app = express()
-
-// ✅ CORS Configuration
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    credentials: true,
-  }),
-)
-
-// ✅ Middleware
+app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-const PORT = Number(process.env.PORT) || 5000
-
-// ✅ Health Check Route
-app.get("/", (req, res) => {
+// ✅ Healthcheck endpoint
+app.get("/test", (req, res) => {
   res.json({
-    success: true,
-    data: { message: "Server is running and connected to PostgreSQL!" },
+    message: "Server is working!",
+    database: "PostgreSQL connected",
   })
 })
 
-// ✅ Auth Routes
+// ✅ Main app routes
 app.use("/api/auth", authRoutes)
 
-// ✅ 404 Handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: "Route not found",
-  })
-})
+console.log("4. Routes configured")
 
-// ✅ Error Handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("Error:", err)
-  res.status(500).json({
-    success: false,
-    error: "Internal server error",
-  })
-})
+// Ensure PORT is a number
+const PORT: number = parseInt(process.env.PORT ?? "5000", 10)
 
-// ✅ Start Server
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`)
-  console.log(`✅ API ready at http://localhost:${PORT}/api`)
+  console.log(`5. Server running on: ${PORT}`)
+  console.log("6. All files loaded successfully!")
 })
