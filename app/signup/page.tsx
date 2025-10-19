@@ -2,15 +2,39 @@
 
 import type React from "react"
 import { useState } from "react"
+import { CheckCircle, XCircle, Eye, EyeOff } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
-import { Eye, EyeOff } from "lucide-react"
+
+// Password validation utility
+const passwordChecks = [
+  {
+    label: "At least 6 characters",
+    test: (pw: string) => pw.length >= 6,
+  },
+  {
+    label: "At least one uppercase letter",
+    test: (pw: string) => /[A-Z]/.test(pw),
+  },
+  {
+    label: "At least one lowercase letter",
+    test: (pw: string) => /[a-z]/.test(pw),
+  },
+  {
+    label: "At least one number",
+    test: (pw: string) => /[0-9]/.test(pw),
+  },
+  {
+    label: "At least one special character",
+    test: (pw: string) => /[^A-Za-z0-9]/.test(pw),
+  },
+]
 
 const SuccessModal = ({
   isOpen,
@@ -25,8 +49,6 @@ const SuccessModal = ({
   onRedirect: () => void
   userEmail?: string
 }) => {
-  const router = useRouter() // ✅ Now inside the component
-
   if (!isOpen) return null
 
   return (
@@ -55,14 +77,9 @@ const SuccessModal = ({
           </>
         ) : (
           <>
-            <h3 className="text-xl font-semibold text-white mb-2">
-              You have successfully created account go to Dashboard
-            </h3>
+            <h3 className="text-xl font-semibold text-white mb-2">You have successfully created account</h3>
             <p className="text-zinc-400 mb-6">Welcome to Urdu AI Platform!</p>
-            <Button
-              onClick={() => router.push("/dashboard")}
-              className="w-full bg-[#e78a53] hover:bg-[#e78a53]/90 text-white"
-            >
+            <Button onClick={onRedirect} className="w-full bg-[#e78a53] hover:bg-[#e78a53]/90 text-white">
               Go to Dashboard
             </Button>
           </>
@@ -73,6 +90,10 @@ const SuccessModal = ({
 }
 
 export default function SignupPage() {
+  const router = useRouter()
+  const { signup, googleSignUp } = useAuth()
+  const { toast } = useToast()
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -87,22 +108,31 @@ export default function SignupPage() {
     type: "email",
   })
   const [errorMessage, setErrorMessage] = useState("")
-
-  const { signUp, signInWithGoogle } = useAuth()
-  const { toast } = useToast()
-  const router = useRouter() // ✅ Inside the component function
+  const [passwordTouched, setPasswordTouched] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }))
+    if (e.target.name === "password") setPasswordTouched(true)
     if (errorMessage) setErrorMessage("")
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage("")
+
+    // Validate password requirements
+    const failedChecks = passwordChecks.filter((check) => !check.test(formData.password))
+    if (failedChecks.length > 0) {
+      toast({
+        title: "Error",
+        description: `Password requirements not met: ${failedChecks.map((c) => c.label).join(", ")}`,
+        variant: "destructive",
+      })
+      return
+    }
 
     if (formData.password !== formData.confirmPassword) {
       toast({
@@ -113,29 +143,18 @@ export default function SignupPage() {
       return
     }
 
-    if (formData.password.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters",
-        variant: "destructive",
-      })
-      return
-    }
-
     setIsLoading(true)
     try {
-      await signUp(formData.email, formData.password)
+      await signup(formData.name, formData.email, formData.password)
       setSuccessModal({ isOpen: true, type: "email" })
     } catch (error: any) {
-      if (error.code === "auth/email-already-in-use") {
-        setErrorMessage("This email is already registered. Please use a different email or sign in instead.")
-      } else {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        })
-      }
+      const errorMsg = error?.message || "An error occurred while creating account."
+      setErrorMessage(errorMsg)
+      toast({
+        title: "Error",
+        description: errorMsg,
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -145,12 +164,12 @@ export default function SignupPage() {
     setIsLoading(true)
     setErrorMessage("")
     try {
-      await signInWithGoogle()
+      await googleSignUp()
       setSuccessModal({ isOpen: true, type: "google" })
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Google signup failed",
         variant: "destructive",
       })
     } finally {
@@ -160,11 +179,7 @@ export default function SignupPage() {
 
   const handleModalRedirect = () => {
     setSuccessModal({ isOpen: false, type: "email" })
-    if (successModal.type === "email") {
-      router.push("/login")
-    } else {
-      router.push("/")
-    }
+    router.push(successModal.type === "email" ? "/login" : "/dashboard")
   }
 
   return (
@@ -262,8 +277,10 @@ export default function SignupPage() {
                   placeholder="Create a password"
                   value={formData.password}
                   onChange={handleChange}
+                  onBlur={() => setPasswordTouched(true)}
                   className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-[#e78a53] focus:ring-[#e78a53]/20 pr-10"
                   required
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -273,6 +290,24 @@ export default function SignupPage() {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
+
+              {passwordTouched && (
+                <div className="mt-2 space-y-1">
+                  {passwordChecks.map((check) => {
+                    const passed = check.test(formData.password)
+                    return (
+                      <div key={check.label} className="flex items-center text-sm gap-2">
+                        {passed ? (
+                          <CheckCircle size={16} className="text-green-500" />
+                        ) : (
+                          <XCircle size={16} className="text-red-500" />
+                        )}
+                        <span className={passed ? "text-green-500" : "text-red-400"}>{check.label}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

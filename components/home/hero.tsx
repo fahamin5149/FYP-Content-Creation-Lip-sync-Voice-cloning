@@ -77,7 +77,7 @@ export default function Hero() {
 
               {/* Get started button */}
               <div className="flex items-center justify-center">
-                <a href="/docs/components/theme-toggle-animations">
+                {/* <a href="/docs/components/theme-toggle-animations"> */}
                   <div className="group cursor-pointer border border-border bg-card gap-2 h-[60px] flex items-center p-[10px] rounded-full">
                     <div className="border border-border bg-primary h-[40px] rounded-full flex items-center justify-center text-primary-foreground">
                       <p className="font-medium tracking-tight mr-3 ml-3 flex items-center gap-2 justify-center text-base">
@@ -118,7 +118,7 @@ export default function Hero() {
                       </svg>
                     </div>
                   </div>
-                </a>
+                {/* </a> */}
               </div>
             </motion.div>
           </div>
