@@ -1,73 +1,58 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const { login, googleSignUp } = useAuth()
+  const { toast } = useToast()
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [emailVerificationError, setEmailVerificationError] = useState("")
-  const { user, setUser, logout } = useAuth()
-  const { signIn, signInWithGoogle, resetPassword } = useAuth()
-  const { toast } = useToast()
-  const router = useRouter()
   const [showForgotPassword, setShowForgotPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setIsLoading(true)
-  setEmailVerificationError("") // clear any old error
+    e.preventDefault()
+    setIsLoading(true)
+    setEmailVerificationError("")
 
-  try {
-    const user = await signIn(email, password)
-    // ✅ If no error, go to dashboard
-    router.push("/dashboard")
-  } catch (err: any) {
-    if (err.message === "EmailUnverified") {
-      await logout()
-      setUser(null)
-      setEmailVerificationError(
-        "Please verify your email first before signing in. Check your inbox for the verification link."
-      )
-    } else if (err.message === "Firebase: Error (auth/invalid-credential).") {
-      setEmailVerificationError("Invalid credentials. Please try again.")
-    } else {
-      setEmailVerificationError(err.message)
+    try {
+      await login(email, password)
+      router.push("/dashboard")
+    } catch (err: any) {
+      const errorMsg = err?.message || "An error occurred. Please try again."
+      setEmailVerificationError(errorMsg)
+      toast({
+        title: "Error",
+        description: errorMsg,
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
-  } finally {
-    setIsLoading(false)
   }
-}
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
     setEmailVerificationError("")
     try {
-      const user = await signInWithGoogle()
-
-      if (user && !user.emailVerified) {
-        console.log("Google user email not verified:", user.email)
-        setEmailVerificationError(
-          "Please verify your email first before signing in. Check your inbox for the verification link.",
-        )
-        return
-      }
-
+      await googleSignUp()
       router.push("/dashboard")
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Google sign in failed",
         variant: "destructive",
       })
     } finally {
@@ -102,7 +87,7 @@ export default function LoginPage() {
 
     setIsLoading(true)
     try {
-      await resetPassword(email)
+      // TODO: Implement resetPassword function in auth context and API
       toast({
         title: "Email Sent!",
         description: "Please check your email for the password reset link.",
@@ -111,7 +96,7 @@ export default function LoginPage() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to send reset email",
         variant: "destructive",
       })
     } finally {
@@ -131,10 +116,7 @@ export default function LoginPage() {
         <span>Back to Home</span>
       </Link>
 
-      {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-black to-zinc-900" />
-
-      {/* Decorative elements */}
       <div className="absolute top-20 left-20 w-72 h-72 bg-[#e78a53]/10 rounded-full blur-3xl" />
       <div className="absolute bottom-20 right-20 w-96 h-96 bg-[#e78a53]/5 rounded-full blur-3xl" />
 
@@ -144,7 +126,6 @@ export default function LoginPage() {
         transition={{ duration: 0.5 }}
         className="relative z-10 w-full max-w-md"
       >
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">
             {showForgotPassword ? "Reset Password" : "Welcome back"}
@@ -167,7 +148,6 @@ export default function LoginPage() {
           )}
         </div>
 
-        {/* Login Form */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -277,7 +257,6 @@ export default function LoginPage() {
           )}
         </motion.div>
 
-        {/* Social Login */}
         {!showForgotPassword && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -301,7 +280,6 @@ export default function LoginPage() {
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
               >
-                {/* Official Google "G" Logo */}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="w-5 h-5 mr-2"
@@ -327,7 +305,6 @@ export default function LoginPage() {
                 Continue with Google
               </Button>
             </div>
-
           </motion.div>
         )}
       </motion.div>

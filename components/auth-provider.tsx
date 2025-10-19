@@ -1,108 +1,95 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useEffect, useState } from "react"
-import {
-  type User,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  GoogleAuthProvider,
-  signInWithPopup,
-} from "firebase/auth"
-import { auth } from "@/lib/firebase"
+import React, { createContext, useContext, useState, useCallback } from "react"
+import { signup, login, googleSignUp, logout as logoutApi, verifyEmail } from "@/lib/api"
+
+interface AuthResponseData {
+  id?: number
+  email: string
+  message?: string
+}
 
 interface AuthContextType {
-  user: User | null
-  loading: boolean
-  setUser: React.Dispatch<React.SetStateAction<User | null>> // ✅ expose setter
-  signIn: (email: string, password: string) => Promise<User>
-  signUp: (email: string, password: string) => Promise<void>
-  signInWithGoogle: () => Promise<User>
+  signup: (name: string, email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
+  googleSignUp: () => Promise<void>
   logout: () => Promise<void>
-  resetPassword: (email: string) => Promise<void>
+  verifyEmail: (token: string) => Promise<void>
+  user: { email: string; name?: string } | null
+  isAuthenticated: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<{ email: string; name?: string } | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user)
-      setLoading(false)
-    })
-    return unsubscribe
+  const handleSignup = useCallback(async (name: string, email: string, password: string): Promise<void> => {
+    try {
+      const response: AuthResponseData = await signup(name, email, password)
+      setUser({ email: response.email, name: (response as any).name || undefined })
+      setIsAuthenticated(true)
+    } catch (error: any) {
+      throw error
+    }
   }, [])
 
-const signIn = async (email: string, password: string) => {
-  try {
-    const result = await signInWithEmailAndPassword(auth, email, password)
+  const handleLogin = useCallback(async (email: string, password: string): Promise<void> => {
+    try {
+      const response: AuthResponseData = await login(email, password)
+      setUser({ email: response.email })
+      setIsAuthenticated(true)
+    } catch (error: any) {
+      throw error
+    }
+  }, [])
 
-    if (!result.user.emailVerified) {
-      await signOut(auth) // ensure session is cleared
+  const handleGoogleSignUp = useCallback(async (): Promise<void> => {
+    try {
+      const response: AuthResponseData = await googleSignUp()
+      setUser({ email: response.email })
+      setIsAuthenticated(true)
+    } catch (error: any) {
+      throw error
+    }
+  }, [])
+
+  const handleLogout = useCallback(async (): Promise<void> => {
+    try {
+      await logoutApi()
       setUser(null)
-      throw new Error("EmailUnverified")
+      setIsAuthenticated(false)
+    } catch (error: any) {
+      throw error
     }
+  }, [])
 
-    return result.user
-  } catch (error: any) {
-    if (error.code === "auth/user-not-found") {
-      throw new Error("UserNotFound")
+  const handleVerifyEmail = useCallback(async (token: string): Promise<void> => {
+    try {
+      await verifyEmail(token)
+    } catch (error: any) {
+      throw error
     }
-    if (error.code === "auth/wrong-password") {
-      throw new Error("WrongPassword")
-    }
-    if (error.code === "auth/invalid-email") {
-      throw new Error("InvalidEmail")
-    }
-    throw error // rethrow for any other case
-  }
-}
+  }, [])
 
-  const signUp = async (email: string, password: string) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password)
-    await sendEmailVerification(result.user)
-  }
-
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider()
-    const result = await signInWithPopup(auth, provider)
-    return result.user
-  }
-
-  const logout = async () => {
-    await signOut(auth)
-    setUser(null) // ✅ clear user state after sign out
-  }
-
-  const resetPassword = async (email: string) => {
-    await sendPasswordResetEmail(auth, email)
-  }
-
-  const value: AuthContextType = {
+  const contextValue: AuthContextType = {
+    signup: handleSignup,
+    login: handleLogin,
+    googleSignUp: handleGoogleSignUp,
+    logout: handleLogout,
+    verifyEmail: handleVerifyEmail,
     user,
-    loading,
-    setUser,         // ✅ exposed to consumers
-    signIn,
-    signUp,
-    signInWithGoogle,
-    logout,
-    resetPassword,
+    isAuthenticated,
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
   const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider")
   }
   return context
 }
