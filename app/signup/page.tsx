@@ -1,3 +1,4 @@
+//signup/page.tsx
 "use client"
 
 import type React from "react"
@@ -153,6 +154,7 @@ export default function SignupPage() {
 
     setIsLoading(true)
     try {
+      // console.log("formdata email and password", formData.email, formData.password)
       await signUp(formData.email, formData.password)
       // Since backend integration is disabled, we simulate success and show the modal.
       setSuccessModal({ isOpen: true, type: "email" })
