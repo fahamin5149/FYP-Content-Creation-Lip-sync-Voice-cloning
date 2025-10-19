@@ -1,9 +1,17 @@
-//signup/page.tsx
 "use client"
 
 import type React from "react"
 import { useState } from "react"
-import { CheckCircle, XCircle } from "lucide-react"
+import { CheckCircle, XCircle, Eye, EyeOff } from "lucide-react"
+import { motion } from "framer-motion"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useAuth } from "@/components/auth-provider"
+import { useToast } from "@/hooks/use-toast"
+
 // Password validation utility
 const passwordChecks = [
   {
@@ -27,15 +35,6 @@ const passwordChecks = [
     test: (pw: string) => /[^A-Za-z0-9]/.test(pw),
   },
 ]
-import { motion } from "framer-motion"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useAuth } from "@/components/auth-provider"
-import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
-import { Eye, EyeOff } from "lucide-react"
 
 const SuccessModal = ({
   isOpen,
@@ -50,8 +49,6 @@ const SuccessModal = ({
   onRedirect: () => void
   userEmail?: string
 }) => {
-  const router = useRouter() // ✅ Now inside the component
-
   if (!isOpen) return null
 
   return (
@@ -80,14 +77,9 @@ const SuccessModal = ({
           </>
         ) : (
           <>
-            <h3 className="text-xl font-semibold text-white mb-2">
-              You have successfully created account go to Dashboard
-            </h3>
+            <h3 className="text-xl font-semibold text-white mb-2">You have successfully created account</h3>
             <p className="text-zinc-400 mb-6">Welcome to Urdu AI Platform!</p>
-            <Button
-              onClick={() => router.push("/dashboard")}
-              className="w-full bg-[#e78a53] hover:bg-[#e78a53]/90 text-white"
-            >
+            <Button onClick={onRedirect} className="w-full bg-[#e78a53] hover:bg-[#e78a53]/90 text-white">
               Go to Dashboard
             </Button>
           </>
@@ -98,6 +90,10 @@ const SuccessModal = ({
 }
 
 export default function SignupPage() {
+  const router = useRouter()
+  const { signup, googleSignUp } = useAuth()
+  const { toast } = useToast()
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -112,12 +108,7 @@ export default function SignupPage() {
     type: "email",
   })
   const [errorMessage, setErrorMessage] = useState("")
-  // Track password validity for visual feedback
   const [passwordTouched, setPasswordTouched] = useState(false)
-
-  const { signUp, signInWithGoogle } = useAuth()
-  const { toast } = useToast()
-  const router = useRouter() // ✅ Inside the component function
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -132,7 +123,7 @@ export default function SignupPage() {
     e.preventDefault()
     setErrorMessage("")
 
-    // Password edge case checks
+    // Validate password requirements
     const failedChecks = passwordChecks.filter((check) => !check.test(formData.password))
     if (failedChecks.length > 0) {
       toast({
@@ -154,21 +145,16 @@ export default function SignupPage() {
 
     setIsLoading(true)
     try {
-      // console.log("formdata email and password", formData.email, formData.password)
-      await signUp(formData.email, formData.password)
-      // Since backend integration is disabled, we simulate success and show the modal.
+      await signup(formData.name, formData.email, formData.password)
       setSuccessModal({ isOpen: true, type: "email" })
     } catch (error: any) {
-      // Generic handling for any errors from the stubbed provider
-      if (error && error.code === "auth/email-already-in-use") {
-        setErrorMessage("This email is already registered. Please use a different email or sign in instead.")
-      } else {
-        toast({
-          title: "Error",
-          description: error?.message ?? "An error occurred while creating account.",
-          variant: "destructive",
-        })
-      }
+      const errorMsg = error?.message || "An error occurred while creating account."
+      setErrorMessage(errorMsg)
+      toast({
+        title: "Error",
+        description: errorMsg,
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -178,12 +164,12 @@ export default function SignupPage() {
     setIsLoading(true)
     setErrorMessage("")
     try {
-      await signInWithGoogle()
+      await googleSignUp()
       setSuccessModal({ isOpen: true, type: "google" })
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Google signup failed",
         variant: "destructive",
       })
     } finally {
@@ -193,11 +179,7 @@ export default function SignupPage() {
 
   const handleModalRedirect = () => {
     setSuccessModal({ isOpen: false, type: "email" })
-    if (successModal.type === "email") {
-      router.push("/login")
-    } else {
-      router.push("/")
-    }
+    router.push(successModal.type === "email" ? "/login" : "/dashboard")
   }
 
   return (
@@ -308,7 +290,7 @@ export default function SignupPage() {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-              {/* Password requirements visual feedback */}
+
               {passwordTouched && (
                 <div className="mt-2 space-y-1">
                   {passwordChecks.map((check) => {
