@@ -21,6 +21,7 @@ async function apiCall<T>(
   const url = `${API_URL}${endpoint}`
 
   const defaultOptions: RequestInit = {
+    credentials: 'include', // ✅ ADD THIS - Essential for cookies/sessions
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
@@ -48,9 +49,13 @@ async function apiCall<T>(
 //-------------------------------------------------------
 //------------ Auth API's  ------------------------------
 //-------------------------------------------------------
+export const getUserProfile = async (): Promise<any> => {
+  return await apiCall("/api/auth/profile", {
+    method: "GET",
+  })
+}
 
 export const signup = async (name: string, email: string, password: string): Promise<AuthResponseData> => {
-  // console.log("API Signup called with:", { name, email, password });
   return await apiCall<AuthResponseData>("/api/auth/signup", {
     method: "POST",
     body: JSON.stringify({ name, email, password }),
@@ -65,7 +70,6 @@ export const login = async (email: string, password: string): Promise<AuthRespon
 }
 
 export const googleSignUp = async (): Promise<AuthResponseData> => {
-  // Deprecated alias kept for compatibility; prefer googleSignIn(token)
   return await apiCall<AuthResponseData>("/api/auth/google-signup", {
     method: "POST",
   })

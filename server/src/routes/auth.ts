@@ -186,7 +186,6 @@ router.post("/signup", async (req: Request, res: Response) => {
       await sendVerificationEmail(email, token, name.trim())
     } catch (emailError: any) {
       console.error("Error sending verification email:", emailError)
-      // Don't fail signup if email sending fails, but log it
     }
 
     return res.status(201).json({
@@ -221,7 +220,7 @@ router.post("/login", async (req: Request, res: Response) => {
 
     // Find user by email
     const result = await pool.query(
-      "SELECT id, email, password_hash, is_email_verified FROM users WHERE email = $1",
+      "SELECT id, email, password_hash, is_email_verified, full_name FROM users WHERE email = $1",
       [email],
     )
 
@@ -252,11 +251,15 @@ router.post("/login", async (req: Request, res: Response) => {
       })
     }
 
+    // ✅ SET SESSION
+    ;(req as any).session.userId = user.id
+
     return res.status(200).json({
       success: true,
       data: {
         id: user.id,
         email: user.email,
+        name: user.full_name,
         message: "Login successful",
       },
     })
@@ -265,6 +268,51 @@ router.post("/login", async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: "Internal server error",
+    })
+  }
+})
+
+// ✅ GET USER PROFILE ROUTE
+router.get("/profile", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Not authenticated"
+      })
+    }
+
+    const result = await pool.query(
+      "SELECT id, email, full_name, is_email_verified, created_at FROM users WHERE id = $1",
+      [userId]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        error: "User not found"
+      })
+    }
+
+    const user = result.rows[0]
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        fullName: user.full_name,
+        isEmailVerified: user.is_email_verified,
+        createdAt: user.created_at
+      }
+    })
+  } catch (error) {
+    console.error("Get profile error:", error)
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error"
     })
   }
 })
@@ -325,7 +373,7 @@ router.post("/verify-email", async (req: Request, res: Response) => {
   }
 })
 
-// ✅ FORGOT PASSWORD - generate reset token and send email
+// ✅ FORGOT PASSWORD
 router.post("/forgot-password", async (req: Request, res: Response) => {
   try {
     const { email } = req.body
@@ -341,7 +389,6 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
     }
 
     const user = result.rows[0]
-
     const { token, expires } = generateVerificationToken()
 
     await pool.query(
@@ -406,7 +453,6 @@ router.post("/reset-password", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Passwords do not match" })
     }
 
-    // Validate password strength
     if (!validatePassword(password)) {
       return res.status(400).json({ success: false, error: "Password does not meet security requirements" })
     }
@@ -421,7 +467,6 @@ router.post("/reset-password", async (req: Request, res: Response) => {
     }
 
     const user = result.rows[0]
-
     const hashedPassword = await bcrypt.hash(password, 10)
 
     await pool.query(
@@ -436,7 +481,7 @@ router.post("/reset-password", async (req: Request, res: Response) => {
   }
 })
 
-// ✅ RESEND VERIFICATION EMAIL ROUTE
+// ✅ RESEND VERIFICATION EMAIL
 router.post("/resend-verification", async (req: Request, res: Response) => {
   try {
     const { email } = req.body
@@ -448,10 +493,8 @@ router.post("/resend-verification", async (req: Request, res: Response) => {
       })
     }
 
-    // Find unverified user
     const result = await pool.query(
-      `SELECT id, full_name, email_verified FROM users 
-       WHERE email = $1`,
+      `SELECT id, full_name, is_email_verified FROM users WHERE email = $1`,
       [email],
     )
 
@@ -464,26 +507,23 @@ router.post("/resend-verification", async (req: Request, res: Response) => {
 
     const user = result.rows[0]
 
-    if (user.email_verified) {
+    if (user.is_email_verified) {
       return res.status(400).json({
         success: false,
         error: "Email is already verified",
       })
     }
 
-    // Generate new token
     const { token, expires } = generateVerificationToken()
 
-    // Update user with new token
     await pool.query(
       `UPDATE users 
        SET verification_token = $1, 
-           verification_token_expires = $2 
+           verification_token_expires_at = $2 
        WHERE id = $3`,
       [token, expires, user.id],
     )
 
-    // Send verification email
     try {
       await sendVerificationEmail(email, token, user.full_name)
     } catch (emailError: any) {
@@ -505,8 +545,7 @@ router.post("/resend-verification", async (req: Request, res: Response) => {
   }
 })
 
-// ✅ GOOGLE SIGNUP ROUTE (Placeholder for Google OAuth integration)
-// ✅ GOOGLE SIGNIN / SIGNUP ROUTE - accepts Google ID token or access token
+// ✅ GOOGLE SIGNIN / SIGNUP
 router.post("/google-signin", async (req: Request, res: Response) => {
   try {
     const { token } = req.body
@@ -520,15 +559,12 @@ router.post("/google-signin", async (req: Request, res: Response) => {
 
     let payload: any = null
 
-    // First try to verify as ID token
     try {
       const ticket = await client.verifyIdToken({ idToken: token, audience: googleClientId })
       payload = (ticket as any).getPayload()
     } catch (idErr) {
-      // If verifying as ID token failed, try getTokenInfo (works with access_token)
       try {
         const info = await client.getTokenInfo(token)
-        // getTokenInfo returns limited info; map to payload-like object
         payload = {
           sub: info.sub,
           email: info.email,
@@ -556,35 +592,38 @@ router.post("/google-signin", async (req: Request, res: Response) => {
     const byGoogle = await pool.query("SELECT id, email, full_name FROM users WHERE google_id = $1", [googleId])
     if (byGoogle.rows.length > 0) {
       const user = byGoogle.rows[0]
+      // ✅ SET SESSION
+      ;(req as any).session.userId = user.id
       return res.status(200).json({ success: true, data: { id: user.id, email: user.email, name: user.full_name, message: "Sign in successful" } })
     }
 
-    // If no user with this google_id, check by email to optionally link
+    // Check by email
     const byEmail = await pool.query("SELECT id, email, full_name, google_id FROM users WHERE email = $1", [email])
     if (byEmail.rows.length > 0) {
       const existing = byEmail.rows[0]
-      // If existing user has no google_id, link accounts
       if (!existing.google_id) {
         await pool.query(
-          `UPDATE users SET google_id = $1, is_email_verified = $2, full_name = COALESCE(NULLIF($3, ''), full_name) WHERE id = $4 RETURNING id, email, full_name`,
+          `UPDATE users SET google_id = $1, is_email_verified = $2, full_name = COALESCE(NULLIF($3, ''), full_name) WHERE id = $4`,
           [googleId, emailVerified, name, existing.id],
         )
+        // ✅ SET SESSION
+        ;(req as any).session.userId = existing.id
         const updated = (await pool.query("SELECT id, email, full_name FROM users WHERE id = $1", [existing.id])).rows[0]
         return res.status(200).json({ success: true, data: { id: updated.id, email: updated.email, name: updated.full_name, message: "Sign in successful" } })
       } else {
-        // Email exists with different google_id - conflict
         return res.status(409).json({ success: false, error: "Email already associated with another account" })
       }
     }
 
-    console.log("user name:", name);
-    // No user exists - create new user using Google info
+    // Create new user
     const create = await pool.query(
       `INSERT INTO users (full_name, email, google_id, is_email_verified, created_at) VALUES ($1, $2, $3, true, NOW()) RETURNING id, email, full_name`,
       [name, email, googleId],
     )
 
     const newUser = create.rows[0]
+    // ✅ SET SESSION
+    ;(req as any).session.userId = newUser.id
 
     return res.status(201).json({ success: true, data: { id: newUser.id, email: newUser.email, name: newUser.full_name, message: "Sign in successful" } })
   } catch (error: any) {
@@ -596,7 +635,15 @@ router.post("/google-signin", async (req: Request, res: Response) => {
 // ✅ LOGOUT ROUTE
 router.post("/logout", async (req: Request, res: Response) => {
   try {
-    // If using JWT, this would be handled on client-side
+    // Destroy session
+    if ((req as any).session) {
+      ;(req as any).session.destroy((err: any) => {
+        if (err) {
+          console.error("Session destroy error:", err)
+        }
+      })
+    }
+
     return res.status(200).json({
       success: true,
       data: { message: "Logged out successfully" },
