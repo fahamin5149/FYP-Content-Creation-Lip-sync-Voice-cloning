@@ -96,7 +96,7 @@ export default function Home() {
                      pointer-events-none"
         >
           <a
-            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer pointer-events-auto"
+            className="relative px-4 py-2 text-white/90 hover:text-white transition-colors cursor-pointer pointer-events-auto"
             onClick={(e) => {
               e.preventDefault()
               const element = document.getElementById("features")
@@ -115,7 +115,7 @@ export default function Home() {
             <span className="relative z-20">Features</span>
           </a>
           <a
-            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer pointer-events-auto"
+            className="relative px-4 py-2 text-white/90 hover:text-white transition-colors cursor-pointer pointer-events-auto"
             onClick={(e) => {
               e.preventDefault()
               const element = document.getElementById("pricing")
@@ -134,7 +134,7 @@ export default function Home() {
             <span className="relative z-20">Pricing</span>
           </a>
           <a
-            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer pointer-events-auto"
+            className="relative px-4 py-2 text-white/90 hover:text-white transition-colors cursor-pointer pointer-events-auto"
             onClick={(e) => {
               e.preventDefault()
               const element = document.getElementById("testimonials")
@@ -153,7 +153,7 @@ export default function Home() {
             <span className="relative z-20">Testimonials</span>
           </a>
           <a
-            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer pointer-events-auto"
+            className="relative px-4 py-2 text-white/90 hover:text-white transition-colors cursor-pointer pointer-events-auto"
             onClick={(e) => {
               e.preventDefault()
               const element = document.getElementById("faq")
@@ -176,7 +176,7 @@ export default function Home() {
         <div className="flex items-center gap-4">
           <Link
             href="/login"
-            className="font-medium transition-colors hover:text-foreground text-muted-foreground text-sm cursor-pointer"
+            className="font-medium transition-colors hover:text-white text-white/90 text-sm cursor-pointer"
           >
             Log In
           </Link>
@@ -236,32 +236,32 @@ export default function Home() {
             <nav className="flex flex-col space-y-4">
               <button
                 onClick={() => handleMobileNavClick("features")}
-                className="text-left px-4 py-3 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-background/50"
+                className="text-left px-4 py-3 text-lg font-medium text-white/90 hover:text-white transition-colors rounded-lg hover:bg-background/50"
               >
                 Features
               </button>
               <button
                 onClick={() => handleMobileNavClick("pricing")}
-                className="text-left px-4 py-3 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-background/50"
+                className="text-left px-4 py-3 text-lg font-medium text-white/90 hover:text-white transition-colors rounded-lg hover:bg-background/50"
               >
                 Pricing
               </button>
               <button
                 onClick={() => handleMobileNavClick("testimonials")}
-                className="text-left px-4 py-3 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-background/50"
+                className="text-left px-4 py-3 text-lg font-medium text-white/90 hover:text-white transition-colors rounded-lg hover:bg-background/50"
               >
                 Testimonials
               </button>
               <button
                 onClick={() => handleMobileNavClick("faq")}
-                className="text-left px-4 py-3 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-background/50"
+                className="text-left px-4 py-3 text-lg font-medium text-white/90 hover:text-white transition-colors rounded-lg hover:bg-background/50"
               >
                 FAQ
               </button>
               <div className="border-t border-border/50 pt-4 mt-4 flex flex-col space-y-3">
                 <Link
                   href="/login"
-                  className="px-4 py-3 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-background/50 cursor-pointer"
+                  className="px-4 py-3 text-lg font-medium text-white/90 hover:text-white transition-colors rounded-lg hover:bg-background/50 cursor-pointer"
                 >
                   Log In
                 </Link>

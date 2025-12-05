@@ -104,11 +104,11 @@ export function TestimonialsSection() {
               <span className="relative text-white">Testimonials</span>
             </button>
           </div>
-          <h2 className="from-foreground/60 via-foreground to-foreground/60 dark:from-muted-foreground/55 dark:via-foreground dark:to-muted-foreground/55 mt-5 bg-gradient-to-r bg-clip-text text-center text-4xl font-semibold tracking-tighter text-transparent md:text-[54px] md:leading-[60px] __className_bb4e88 relative z-10">
+          <h2 className="mt-5 text-center text-4xl font-semibold tracking-tight text-white md:text-[54px] md:leading-[60px] relative z-10">
             What our users say
           </h2>
 
-          <p className="mt-5 relative z-10 text-center text-lg text-zinc-500">
+          <p className="mt-5 relative z-10 text-center text-lg text-white/80">
             From content creators to businesses, our AI video generation platform has transformed how people create
             professional Urdu content.
           </p>

@@ -60,14 +60,14 @@ export function FAQSection() {
         </motion.div>
 
         <motion.h2
-          className="mx-auto mt-6 max-w-xl text-center text-4xl font-medium md:text-[54px] md:leading-[60px]"
+          className="mx-auto mt-6 max-w-xl text-center text-4xl font-semibold text-white md:text-[54px] md:leading-[60px]"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           viewport={{ once: true }}
         >
           Questions? We've got{" "}
-          <span className="bg-gradient-to-b from-foreground via-rose-200 to-primary bg-clip-text text-transparent">
+          <span className="text-primary font-bold">
             answers
           </span>
         </motion.h2>
@@ -95,7 +95,7 @@ export function FAQSection() {
               {...(index === faqs.length - 1 && { "data-faq": faq.question })}
             >
               <div className="flex items-start justify-between">
-                <h3 className="m-0 font-medium pr-4">{faq.question}</h3>
+                <h3 className="m-0 font-semibold pr-4 text-white">{faq.question}</h3>
                 <motion.div
                   animate={{ rotate: openItems.includes(index) ? 180 : 0 }}
                   transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -111,7 +111,7 @@ export function FAQSection() {
               <AnimatePresence>
                 {openItems.includes(index) && (
                   <motion.div
-                    className="mt-4 text-muted-foreground leading-relaxed overflow-hidden"
+                    className="mt-4 text-white/80 leading-relaxed overflow-hidden"
                     initial={{ opacity: 0, height: 0, marginTop: 0 }}
                     animate={{ opacity: 1, height: "auto", marginTop: 16 }}
                     exit={{ opacity: 0, height: 0, marginTop: 0 }}

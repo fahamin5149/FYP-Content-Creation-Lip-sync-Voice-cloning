@@ -61,7 +61,7 @@ export default function Features() {
       >
         <h2
           className={cn(
-            "via-foreground mb-8 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-center text-4xl font-semibold tracking-tighter text-transparent md:text-[54px] md:leading-[60px]",
+            "mb-8 text-center text-4xl font-semibold tracking-tight text-white md:text-[54px] md:leading-[60px]",
             geist.className,
           )}
         >
@@ -87,10 +87,10 @@ export default function Features() {
                 style={{ transition: "all 0s ease-in-out" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight text-white">
                     Voice Cloning
                   </h3>
-                  <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
+                  <div className="text-md text-white/80 flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
                       Advanced AI technology that learns and replicates your unique voice characteristics with minimal
                       training data.
@@ -290,8 +290,8 @@ export default function Features() {
   style={{ transition: "all 0s ease-in-out" }}
 >
   <div className="flex flex-col gap-4">
-    <h3 className="text-2xl leading-none font-semibold tracking-tight">Avatar Creation</h3>
-    <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
+    <h3 className="text-2xl leading-none font-semibold tracking-tight text-white">Avatar Creation</h3>
+    <div className="text-md text-white/80 flex flex-col gap-2 text-sm">
       <p className="max-w-[460px]">
         Create your digital identity from a simple video sample. Our AI generates a realistic avatar that
         represents you.
@@ -521,8 +521,8 @@ export default function Features() {
                 style={{ transition: "all 0s ease-in-out" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">AI Content Enhancement</h3>
-                  <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight text-white">AI Content Enhancement</h3>
+                  <div className="text-md text-white/80 flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
                       Intelligent Urdu script refinement that enhances your text for better pronunciation and natural
                       flow.
@@ -616,8 +616,8 @@ export default function Features() {
                 style={{ transition: "all 0s ease-in-out" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">Lip-Synced Video Generation</h3>
-                  <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight text-white">Lip-Synced Video Generation</h3>
+                  <div className="text-md text-white/80 flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
                       Advanced lip synchronization technology that creates perfectly matched mouth movements for
                       natural-looking videos.
