@@ -7,13 +7,63 @@ interface ApiResponse<T> {
   error?: string
 }
 
-interface AuthResponseData {
-  id?: number
-  email: string
-  message?: string
+//-------------------------------------------------------
+//------------ Authentication Functions  ---------------
+//-------------------------------------------------------
+
+/**
+ * Fetch with Clerk Authentication (Client-side only)
+ * Automatically adds Bearer token to Authorization header
+ * MUST pass getToken function from useAuth() hook
+ */
+export async function fetchWithAuth(
+  url: string,
+  options: RequestInit = {},
+  getToken: () => Promise<string | null>
+) {
+  if (!getToken) {
+    throw new Error("getToken function is required. Use useAuth() hook to get it.")
+  }
+
+  let token: string | null = null
+
+  try {
+    token = await getToken()
+    if (!token) {
+      throw new Error("No authentication token available")
+    }
+  } catch (error) {
+    console.error("Auth error:", error)
+    throw new Error("User not authenticated")
+  }
+
+  const headers = {
+    ...(options.headers || {}),
+    Authorization: `Bearer ${token}`,
+  }
+
+  const response = await fetch(url, { ...options, headers })
+
+  // Handle redirect on 302
+  if (response.status === 302) {
+    if (typeof window !== "undefined") {
+      window.location.href = "/"
+    }
+    return
+  }
+
+  if (!response.ok) {
+    throw new Error(await response.text())
+  }
+
+  return response.json()
 }
 
-// Generic API call handler
+//-------------------------------------------------------
+//------------ Generic API call handler  ---------------
+//-------------------------------------------------------
+
+// Generic API call handler without auth (for public endpoints)
 async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -21,7 +71,7 @@ async function apiCall<T>(
   const url = `${API_URL}${endpoint}`
 
   const defaultOptions: RequestInit = {
-    credentials: 'include', // ✅ ADD THIS - Essential for cookies/sessions
+    credentials: "include", // Essential for cookies/sessions
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
@@ -47,71 +97,55 @@ async function apiCall<T>(
 }
 
 //-------------------------------------------------------
-//------------ Auth API's  ------------------------------
+//------------ Supabase Sync Functions  ----------------
 //-------------------------------------------------------
+
+/**
+ * Sync user to backend (which stores in Supabase)
+ * Call this on sign-up completion
+ * MUST pass getToken from useAuth() hook
+ */
+export const syncUserToBackend = async (
+  email: string,
+  firstName: string | undefined,
+  lastName: string | undefined,
+  getToken: () => Promise<string | null>
+): Promise<any> => {
+  if (!getToken) {
+    throw new Error("getToken is required. Use: const { getToken } = useAuth()")
+  }
+
+  try {
+    const response = await fetchWithAuth(
+      `${API_URL}/api/users/sync`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          firstName: firstName || "",
+          lastName: lastName || "",
+        }),
+      },
+      getToken
+    )
+    return response
+  } catch (error) {
+    console.error("Error syncing user to backend:", error)
+    throw error
+  }
+}
+
+//-------------------------------------------------------
+//------------ Non-Auth API's  -------------------------
+//-------------------------------------------------------
+// Note: Authentication is now handled by Clerk
+// Use this for general API calls to your backend
+
 export const getUserProfile = async (): Promise<any> => {
   return await apiCall("/api/auth/profile", {
     method: "GET",
-  })
-}
-
-export const signup = async (name: string, email: string, password: string): Promise<AuthResponseData> => {
-  return await apiCall<AuthResponseData>("/api/auth/signup", {
-    method: "POST",
-    body: JSON.stringify({ name, email, password }),
-  })
-}
-
-export const login = async (email: string, password: string): Promise<AuthResponseData> => {
-  return await apiCall<AuthResponseData>("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
-  })
-}
-
-export const googleSignUp = async (): Promise<AuthResponseData> => {
-  return await apiCall<AuthResponseData>("/api/auth/google-signup", {
-    method: "POST",
-  })
-}
-
-export const googleSignIn = async (token: string): Promise<AuthResponseData> => {
-  return await apiCall<AuthResponseData>("/api/auth/google-signin", {
-    method: "POST",
-    body: JSON.stringify({ token }),
-  })
-}
-
-export const logout = async (): Promise<AuthResponseData> => {
-  return await apiCall<AuthResponseData>("/api/auth/logout", {
-    method: "POST",
-  })
-}
-
-export const verifyEmail = async (token: string): Promise<AuthResponseData> => {
-  return await apiCall<AuthResponseData>("/api/auth/verify-email", {
-    method: "POST",
-    body: JSON.stringify({ token }),
-  })
-}
-
-export const forgotPassword = async (email: string): Promise<{ message?: string }> => {
-  return await apiCall<{ message?: string }>("/api/auth/forgot-password", {
-    method: "POST",
-    body: JSON.stringify({ email }),
-  })
-}
-
-export const validateResetToken = async (token: string): Promise<{ email?: string }> => {
-  return await apiCall<{ email?: string }>("/api/auth/validate-reset-token", {
-    method: "POST",
-    body: JSON.stringify({ token }),
-  })
-}
-
-export const resetPassword = async (token: string, password: string, confirmPassword: string): Promise<{ message?: string }> => {
-  return await apiCall<{ message?: string }>("/api/auth/reset-password", {
-    method: "POST",
-    body: JSON.stringify({ token, password, confirmPassword }),
   })
 }
