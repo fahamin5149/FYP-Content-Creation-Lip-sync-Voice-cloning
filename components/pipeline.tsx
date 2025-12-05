@@ -100,13 +100,13 @@ const VisualPipeline = () => {
       >
         <h2
           className={cn(
-            "via-foreground mb-8 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-center text-4xl font-semibold tracking-tighter text-transparent md:text-[54px] md:leading-[60px]",
+            "mb-8 text-center text-4xl font-semibold tracking-tight text-white md:text-[54px] md:leading-[60px]",
             geist.className,
           )}
         >
           How It Works
         </h2>
-        <p className="text-lg text-muted-foreground text-balance max-w-2xl mx-auto">
+        <p className="text-lg text-white/80 text-balance max-w-2xl mx-auto">
           Text → Professional Video in Minutes
         </p>
       </motion.div>
@@ -200,12 +200,12 @@ const VisualPipeline = () => {
                 transition={{ duration: 0.3, ease: "easeOut" }}
               >
                 <h4 className={cn(
-                  "text-lg font-semibold tracking-tight text-foreground",
+                  "text-lg font-semibold tracking-tight text-white",
                   geist.className
                 )}>
                   {step.title}
                 </h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-sm text-white/80 leading-relaxed">
                   {step.description}
                 </p>
               </motion.div>
@@ -246,13 +246,13 @@ const VisualPipeline = () => {
         >
           <span className="text-xl">⚡</span>
           <span className={cn(
-            "text-lg font-semibold text-foreground tracking-tight",
+            "text-lg font-semibold text-white tracking-tight",
             geist.className
           )}>
             One-time Setup
           </span>
         </motion.div>
-        <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl mx-auto text-balance">
+        <p className="text-sm text-white/80 leading-relaxed max-w-2xl mx-auto text-balance">
           After initial voice cloning and avatar creation, simply input Urdu text and get professional, 
           lip-synced videos in minutes. Perfect for content creators, educators, and businesses.
         </p>
