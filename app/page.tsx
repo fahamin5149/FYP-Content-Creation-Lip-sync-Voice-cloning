@@ -175,14 +175,14 @@ export default function Home() {
 
         <div className="flex items-center gap-4">
           <Link
-            href="/login"
+            href="/sign-in"
             className="font-medium transition-colors hover:text-white text-white/90 text-sm cursor-pointer"
           >
             Log In
           </Link>
 
           <Link
-            href="/signup"
+            href="/sign-up"
             className="rounded-md font-bold relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center bg-gradient-to-b from-primary to-primary/80 text-white shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] px-4 py-2 text-sm"
           >
             Sign Up
@@ -260,13 +260,13 @@ export default function Home() {
               </button>
               <div className="border-t border-border/50 pt-4 mt-4 flex flex-col space-y-3">
                 <Link
-                  href="/login"
+                  href="/sign-in"
                   className="px-4 py-3 text-lg font-medium text-white/90 hover:text-white transition-colors rounded-lg hover:bg-background/50 cursor-pointer"
                 >
                   Log In
                 </Link>
                 <Link
-                  href="/signup"
+                  href="/sign-up"
                   className="px-4 py-3 text-lg font-bold text-center bg-gradient-to-b from-primary to-primary/80 text-white rounded-lg shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                 >
                   Sign Up
