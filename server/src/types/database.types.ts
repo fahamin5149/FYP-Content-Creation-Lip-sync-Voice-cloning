@@ -1,5 +1,46 @@
 // server/src/types/database.types.ts
 
+// Script-related interfaces (defined first for use in Database type)
+export interface ScriptParameters {
+  // For refinement
+  refinementType?: 'simple' | 'custom'
+  customInstructions?: string
+  originalScript?: string
+  
+  // For generation
+  language?: string
+  topic?: string
+  scriptType?: string
+  tone?: string
+  targetAudience?: string
+  keyPoints?: string
+  introStyle?: string
+  includeHook?: boolean
+  includeCTA?: boolean
+  includeTransitions?: boolean
+  includeQuestions?: boolean
+  specialRequirements?: string
+  
+  // Common parameters
+  duration: number
+  pacing: string
+}
+
+export interface ScriptVersion {
+  versionNumber: number
+  content: string
+  feedback: string
+  createdAt: string
+}
+
+export interface ScriptMetadata {
+  wordCount: number
+  estimatedDuration: number
+  scriptType?: string
+  tone?: string
+}
+
+// Database schema types
 export interface Database {
   public: {
     Tables: {
@@ -32,6 +73,66 @@ export interface Database {
           updated_at?: string
         }
       }
+      scripts: {
+        Row: {
+          id: string
+          script_id: string
+          user_id: string
+          language: string
+          method: 'refinement' | 'generated'
+          content: string
+          parameters: ScriptParameters | null
+          versions: ScriptVersion[]
+          status: 'draft' | 'approved' | 'in_progress'
+          metadata: ScriptMetadata | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          script_id: string
+          user_id: string
+          language: string
+          method: 'refinement' | 'generated'
+          content: string
+          parameters?: ScriptParameters | null
+          versions?: ScriptVersion[]
+          status?: 'draft' | 'approved' | 'in_progress'
+          metadata?: ScriptMetadata | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          script_id?: string
+          user_id?: string
+          language?: string
+          method?: 'refinement' | 'generated'
+          content?: string
+          parameters?: ScriptParameters | null
+          versions?: ScriptVersion[]
+          status?: 'draft' | 'approved' | 'in_progress'
+          metadata?: ScriptMetadata | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
+}
+
+// Script interface for convenience
+export interface Script {
+  id: string
+  script_id: string
+  user_id: string
+  language: string
+  method: 'refinement' | 'generated'
+  content: string
+  parameters: ScriptParameters | null
+  versions: ScriptVersion[]
+  status: 'draft' | 'approved' | 'in_progress'
+  metadata: ScriptMetadata | null
+  created_at: string
+  updated_at: string
 }
