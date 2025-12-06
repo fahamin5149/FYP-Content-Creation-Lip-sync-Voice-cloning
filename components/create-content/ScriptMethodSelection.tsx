@@ -34,7 +34,7 @@ export default function ScriptMethodSelection({ onSelect, onBack }: ScriptMethod
             Bring your own draft or let the AI generate one from scratch.
           </CardDescription>
         </div>
-        <Button variant="ghost" className="text-white/70 hover:text-white" onClick={onBack}>
+        <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10" onClick={onBack}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
       </CardHeader>

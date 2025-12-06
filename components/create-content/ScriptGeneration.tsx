@@ -48,6 +48,7 @@ const durationOptions = [
 const pacingOptions = ["Slow", "Medium", "Fast"]
 
 export default function ScriptGeneration({ language, getToken, onComplete, onBack }: ScriptGenerationProps) {
+  const [title, setTitle] = useState("")
   const [topic, setTopic] = useState("")
   const [scriptType, setScriptType] = useState(scriptTypes[0])
   const [tone, setTone] = useState(tones[0])
@@ -66,14 +67,15 @@ export default function ScriptGeneration({ language, getToken, onComplete, onBac
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!topic.trim() || !targetAudience.trim()) {
-      setError("Topic and target audience are required.")
+    if (!title.trim() || !topic.trim() || !targetAudience.trim()) {
+      setError("Title, topic, and target audience are required.")
       return
     }
     setError(null)
     setLoading(true)
     try {
       const params: ScriptGenerationParams = {
+        title,
         language,
         topic,
         scriptType,
@@ -107,18 +109,30 @@ export default function ScriptGeneration({ language, getToken, onComplete, onBac
             Provide the creative brief and we’ll build a structured script for you.
           </CardDescription>
         </div>
-        <Button variant="ghost" className="text-white/70 hover:text-white" onClick={onBack}>
+        <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10" onClick={onBack}>
           Back
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-white">Topic / Subject</Label>
+          <Label className="text-white">Content Title *</Label>
           <Input
+            placeholder="e.g., Social Media Marketing Tutorial"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="bg-black/40 text-white border-white/10"
+          />
+          <p className="text-xs text-white/50">This title helps you identify your content in the dashboard</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-white">Topic / Subject</Label>
+          <Textarea
             placeholder="e.g., How to create engaging short-form videos"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            className="bg-black/40 text-white border-white/10"
+            className="bg-black/40 text-white border-white/10 min-h-[60px] resize-y"
+            rows={3}
           />
         </div>
 
@@ -261,8 +275,8 @@ export default function ScriptGeneration({ language, getToken, onComplete, onBac
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between px-6">
-        <Button variant="ghost" className="text-white/70 hover:text-white" onClick={onBack} disabled={loading}>
+      <CardFooter className="flex justify-between">
+        <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10" onClick={onBack} disabled={loading}>
           Back
         </Button>
         <Button

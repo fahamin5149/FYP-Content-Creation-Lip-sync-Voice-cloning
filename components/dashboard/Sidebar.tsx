@@ -59,21 +59,21 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
             <Link
               key={item.label}
               href={item.href}
-              className={`flex items-center px-4 py-3 text-base rounded-lg font-medium transition-all
+              className={`flex items-center ${isOpen ? 'px-4' : 'px-3 lg:justify-center'} py-3 text-base rounded-lg font-medium transition-all
                 ${isActive
                   ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25" 
                   : "text-white/80 hover:text-white hover:bg-white/10"}`}
             >
-              <Icon className="mr-3 h-5 w-5" />
+              <Icon className={`${isOpen ? 'mr-3 h-5 w-5' : 'h-6 w-6 lg:mr-0'}`} />
               <span className={`${!isOpen && "lg:hidden"}`}>{item.label}</span>
             </Link>
           ) : (
             <Tooltip key={item.label}>
               <TooltipTrigger asChild>
                 <div
-                  className="flex items-center px-4 py-3 text-base rounded-lg cursor-not-allowed opacity-40 text-white/60"
+                  className={`flex items-center ${isOpen ? 'px-4' : 'px-3 lg:justify-center'} py-3 text-base rounded-lg cursor-not-allowed opacity-40 text-white/60`}
                 >
-                  <Icon className="mr-3 h-5 w-5" />
+                  <Icon className={`${isOpen ? 'mr-3 h-5 w-5' : 'h-6 w-6 lg:mr-0'}`} />
                   <span className={`${!isOpen && "lg:hidden"}`}>{item.label}</span>
                 </div>
               </TooltipTrigger>
