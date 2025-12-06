@@ -143,6 +143,7 @@ export const syncUserToBackend = async (
 //-------------------------------------------------------
 
 export interface ScriptGenerationParams {
+  title: string
   language: string
   topic: string
   scriptType: string
@@ -160,6 +161,7 @@ export interface ScriptGenerationParams {
 }
 
 export interface ScriptRefinementParams {
+  title: string
   originalScript: string
   refinementType: 'simple' | 'custom'
   customInstructions?: string
@@ -270,6 +272,12 @@ export const getScript = async (
 }
 
 /**
+ * Alias for getScript - Get script by ID
+ * Requires authentication
+ */
+export const getScriptById = getScript
+
+/**
  * Save script as draft
  * Requires authentication
  */
@@ -287,6 +295,25 @@ export const saveDraft = async (
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ scriptId, content, parameters }),
+    },
+    getToken
+  )
+}
+
+/**
+ * Get user's saved drafts
+ * Requires authentication
+ */
+export const getUserDrafts = async (
+  getToken: () => Promise<string | null>
+): Promise<{ drafts: any[] }> => {
+  return await fetchWithAuth(
+    `${API_URL}/api/content/drafts`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
     },
     getToken
   )

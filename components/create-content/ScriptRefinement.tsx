@@ -4,6 +4,7 @@ import { useState } from "react"
 import { refineScript, ScriptRefinementParams, ScriptResponse } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -35,6 +36,7 @@ const durationOptions = [
 const pacingOptions = ["Slow", "Medium", "Fast"]
 
 export default function ScriptRefinement({ language, getToken, onComplete, onBack }: ScriptRefinementProps) {
+  const [title, setTitle] = useState("")
   const [originalScript, setOriginalScript] = useState("")
   const [refinementType, setRefinementType] = useState<"simple" | "custom">("simple")
   const [customInstructions, setCustomInstructions] = useState("")
@@ -45,14 +47,15 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!originalScript.trim()) {
-      setError("Please paste your script first.")
+    if (!title.trim() || !originalScript.trim()) {
+      setError("Title and script are required.")
       return
     }
     setError(null)
     setLoading(true)
     try {
       const params: ScriptRefinementParams = {
+        title,
         originalScript,
         refinementType,
         customInstructions: refinementType === "custom" ? customInstructions : undefined,
@@ -78,11 +81,22 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
             Drop in your draft and choose how you want it polished.
           </CardDescription>
         </div>
-        <Button variant="ghost" className="text-white/70 hover:text-white" onClick={onBack}>
+        <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10" onClick={onBack}>
           Back
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label className="text-white">Content Title *</Label>
+          <Input
+            placeholder="e.g., Refined Marketing Script"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="bg-black/40 text-white border-white/10"
+          />
+          <p className="text-xs text-white/50">This title helps you identify your content in the dashboard</p>
+        </div>
+
         <div className="space-y-2">
           <Label className="text-white">Original script</Label>
           <Textarea
@@ -100,15 +114,15 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
             onValueChange={(value: "simple" | "custom") => setRefinementType(value)}
             className="grid gap-3 sm:grid-cols-2"
           >
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
-              <RadioGroupItem value="simple" id="simple" />
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
+              <RadioGroupItem value="simple" id="simple" className="mt-0" />
               <div>
                 <p className="font-medium">Simple refinement</p>
                 <p className="text-sm text-white/70">Tighten language and flow automatically.</p>
               </div>
             </label>
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
-              <RadioGroupItem value="custom" id="custom" />
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
+              <RadioGroupItem value="custom" id="custom" className="mt-0" />
               <div>
                 <p className="font-medium">Custom instructions</p>
                 <p className="text-sm text-white/70">Provide specific guidance for the rewrite.</p>
@@ -170,7 +184,7 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
         )}
       </CardContent>
       <CardFooter className="flex justify-between px-6">
-        <Button variant="ghost" className="text-white/70 hover:text-white" onClick={onBack} disabled={loading}>
+        <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10" onClick={onBack} disabled={loading}>
           Back
         </Button>
         <Button
