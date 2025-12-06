@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS public.scripts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   script_id TEXT UNIQUE NOT NULL,
   user_id TEXT NOT NULL, -- This references clerk_id from users table
+  title TEXT NOT NULL, -- User-provided title for content identification
   language TEXT NOT NULL,
   method TEXT NOT NULL, -- 'refinement' or 'generated'
   content TEXT NOT NULL,

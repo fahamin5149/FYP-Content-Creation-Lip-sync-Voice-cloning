@@ -8,6 +8,7 @@ export interface ScriptParameters {
   originalScript?: string
   
   // For generation
+  title?: string
   language?: string
   topic?: string
   scriptType?: string

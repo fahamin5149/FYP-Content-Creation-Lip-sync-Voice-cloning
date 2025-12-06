@@ -1,6 +1,7 @@
 // server/src/prompts/scriptGeneration.ts
 
 interface ScriptGenerationParams {
+  title: string;
   language: string;
   topic: string;
   scriptType: string;

@@ -32,19 +32,19 @@ export const generateScript = async (req: Request, res: Response): Promise<void>
     }
 
     const { 
-      language, topic, scriptType, tone, targetAudience, keyPoints,
+      title, language, topic, scriptType, tone, targetAudience, keyPoints,
       duration, pacing, introStyle, includeHook, includeCTA,
       includeTransitions, includeQuestions, specialRequirements 
     } = req.body;
 
     // Validation
-    if (!language || !topic || !duration || !pacing) {
-      res.status(400).json({ error: 'Missing required fields: language, topic, duration, pacing' });
+    if (!title || !language || !topic || !duration || !pacing) {
+      res.status(400).json({ error: 'Missing required fields: title, language, topic, duration, pacing' });
       return;
     }
     
     const parameters: ScriptParameters = {
-      language, topic, scriptType, tone, targetAudience, keyPoints,
+      title, language, topic, scriptType, tone, targetAudience, keyPoints,
       duration, pacing, introStyle, includeHook, includeCTA,
       includeTransitions, includeQuestions, specialRequirements
     };
@@ -77,6 +77,7 @@ export const generateScript = async (req: Request, res: Response): Promise<void>
       .insert({
         script_id: scriptId,
         user_id: userId,
+        title,
         language,
         method: 'generated' as const,
         content: generatedScript,
@@ -119,12 +120,12 @@ export const refineScript = async (req: Request, res: Response): Promise<void> =
     }
 
     const { 
-      originalScript, refinementType, customInstructions,
+      title, originalScript, refinementType, customInstructions,
       language, duration, pacing 
     } = req.body;
 
     // Validation
-    if (!originalScript || !refinementType || !language || !duration || !pacing) {
+    if (!title || !originalScript || !refinementType || !language || !duration || !pacing) {
       res.status(400).json({ error: 'Missing required fields' });
       return;
     }
@@ -169,6 +170,7 @@ export const refineScript = async (req: Request, res: Response): Promise<void> =
       .insert({
         script_id: scriptId,
         user_id: userId,
+        title,
         language,
         method: 'refinement' as const,
         content: refinedScript,
@@ -372,5 +374,39 @@ export const saveDraft = async (req: Request, res: Response): Promise<void> => {
   } catch (error: any) {
     console.error('Save draft error:', error);
     res.status(500).json({ error: 'Failed to save draft' });
+  }
+};
+
+/**
+ * Get User Drafts
+ * GET /api/content/drafts
+ */
+export const getUserDrafts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.auth?.userId;
+    
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('scripts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'draft')
+      .order('updated_at', { ascending: false });
+    
+    if (error) {
+      console.error('Get drafts error:', error);
+      res.status(500).json({ error: 'Failed to retrieve drafts' });
+      return;
+    }
+    
+    res.json({ drafts: data || [] });
+  } catch (error: any) {
+    console.error('Get drafts error:', error);
+    res.status(500).json({ error: 'Failed to retrieve drafts' });
   }
 };
