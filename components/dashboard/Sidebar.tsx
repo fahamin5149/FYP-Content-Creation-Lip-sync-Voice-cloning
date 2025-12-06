@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { 
   Home, 
   Mic, 
@@ -20,7 +21,7 @@ import {
 const navItems = [
   { icon: Home, label: "Dashboard", href: "/dashboard", enabled: true },
   { icon: Mic, label: "Voice Setup", href: "#", enabled: false },
-  { icon: FileText, label: "Create Content", href: "#", enabled: false },
+  { icon: FileText, label: "Create Content", href: "/dashboard/create-content", enabled: true },
   { icon: Video, label: "My Videos", href: "#", enabled: false },
   { icon: Settings, label: "Settings", href: "#", enabled: false },
 ]
@@ -31,6 +32,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
+  const pathname = usePathname()
+
   return (
     <div
       className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out bg-black/40 backdrop-blur-xl border-r border-white/10
@@ -51,25 +54,26 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       <nav className="mt-6 px-3 space-y-2">
         {navItems.map((item) => {
           const Icon = item.icon
+          const isActive = pathname === item.href
           return item.enabled ? (
             <Link
               key={item.label}
               href={item.href}
-              className={`flex items-center px-4 py-3 text-base rounded-lg font-medium transition-all
-                ${item.label === "Dashboard" 
+              className={`flex items-center ${isOpen ? 'px-4' : 'px-3 lg:justify-center'} py-3 text-base rounded-lg font-medium transition-all
+                ${isActive
                   ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25" 
                   : "text-white/80 hover:text-white hover:bg-white/10"}`}
             >
-              <Icon className="mr-3 h-5 w-5" />
+              <Icon className={`${isOpen ? 'mr-3 h-5 w-5' : 'h-6 w-6 lg:mr-0'}`} />
               <span className={`${!isOpen && "lg:hidden"}`}>{item.label}</span>
             </Link>
           ) : (
             <Tooltip key={item.label}>
               <TooltipTrigger asChild>
                 <div
-                  className="flex items-center px-4 py-3 text-base rounded-lg cursor-not-allowed opacity-40 text-white/60"
+                  className={`flex items-center ${isOpen ? 'px-4' : 'px-3 lg:justify-center'} py-3 text-base rounded-lg cursor-not-allowed opacity-40 text-white/60`}
                 >
-                  <Icon className="mr-3 h-5 w-5" />
+                  <Icon className={`${isOpen ? 'mr-3 h-5 w-5' : 'h-6 w-6 lg:mr-0'}`} />
                   <span className={`${!isOpen && "lg:hidden"}`}>{item.label}</span>
                 </div>
               </TooltipTrigger>

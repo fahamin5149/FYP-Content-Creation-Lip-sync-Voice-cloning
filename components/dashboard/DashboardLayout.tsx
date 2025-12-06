@@ -1,12 +1,16 @@
 //components/dashboard/DashboardLayout.tsx
 "use client"
 
-import { useState } from "react"
+import { ReactNode, useState } from "react"
 import { Sidebar } from "./Sidebar"
 import { TopBar } from "./TopBar"
 import { DashboardContent } from "./DashboardContent"
 
-export function DashboardLayout() {
+interface DashboardLayoutProps {
+  children?: ReactNode
+}
+
+export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   return (
@@ -23,7 +27,7 @@ export function DashboardLayout() {
         <div className={`${sidebarOpen ? "lg:pl-64" : "lg:pl-20"} transition-all duration-300 ease-in-out`}>
           <TopBar sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
           <main className="py-8 px-4 sm:px-6 lg:px-8">
-            <DashboardContent />
+            {children ?? <DashboardContent />}
           </main>
         </div>
       </div>
