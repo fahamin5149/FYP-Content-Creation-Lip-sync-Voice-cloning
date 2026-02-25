@@ -139,6 +139,187 @@ export const syncUserToBackend = async (
 }
 
 //-------------------------------------------------------
+//------------ Content Creation API Functions ----------
+//-------------------------------------------------------
+
+export interface ScriptGenerationParams {
+  title: string
+  language: string
+  topic: string
+  scriptType: string
+  tone: string
+  targetAudience: string
+  keyPoints?: string
+  duration: number
+  pacing: string
+  introStyle?: string
+  includeHook?: boolean
+  includeCTA?: boolean
+  includeTransitions?: boolean
+  includeQuestions?: boolean
+  specialRequirements?: string
+}
+
+export interface ScriptRefinementParams {
+  title: string
+  originalScript: string
+  refinementType: 'simple' | 'custom'
+  customInstructions?: string
+  language: string
+  duration: number
+  pacing: string
+}
+
+export interface ScriptFeedbackParams {
+  scriptId: string
+  currentScript: string
+  feedback: string
+  language: string
+  duration: number
+  pacing: string
+}
+
+export interface ScriptResponse {
+  scriptId: string
+  content: string
+  metadata: {
+    wordCount: number
+    estimatedDuration: number
+    scriptType?: string
+    tone?: string
+  }
+  version?: number
+}
+
+/**
+ * Generate AI script from user requirements
+ * Requires authentication
+ */
+export const generateScript = async (
+  params: ScriptGenerationParams,
+  getToken: () => Promise<string | null>
+): Promise<ScriptResponse> => {
+  return await fetchWithAuth(
+    `${API_URL}/api/content/generate-script`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    },
+    getToken
+  )
+}
+
+/**
+ * Refine existing script (simple or custom refinement)
+ * Requires authentication
+ */
+export const refineScript = async (
+  params: ScriptRefinementParams,
+  getToken: () => Promise<string | null>
+): Promise<ScriptResponse> => {
+  return await fetchWithAuth(
+    `${API_URL}/api/content/refine-script`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    },
+    getToken
+  )
+}
+
+/**
+ * Refine script based on user feedback
+ * Requires authentication
+ */
+export const refineWithFeedback = async (
+  params: ScriptFeedbackParams,
+  getToken: () => Promise<string | null>
+): Promise<ScriptResponse> => {
+  return await fetchWithAuth(
+    `${API_URL}/api/content/refine-with-feedback`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    },
+    getToken
+  )
+}
+
+/**
+ * Get script by ID
+ * Requires authentication
+ */
+export const getScript = async (
+  scriptId: string,
+  getToken: () => Promise<string | null>
+): Promise<any> => {
+  return await fetchWithAuth(
+    `${API_URL}/api/content/script/${scriptId}`,
+    {
+      method: "GET",
+    },
+    getToken
+  )
+}
+
+/**
+ * Alias for getScript - Get script by ID
+ * Requires authentication
+ */
+export const getScriptById = getScript
+
+/**
+ * Save script as draft
+ * Requires authentication
+ */
+export const saveDraft = async (
+  scriptId: string,
+  content: string,
+  parameters: any,
+  getToken: () => Promise<string | null>
+): Promise<{ success: boolean; draftId: string }> => {
+  return await fetchWithAuth(
+    `${API_URL}/api/content/save-draft`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ scriptId, content, parameters }),
+    },
+    getToken
+  )
+}
+
+/**
+ * Get user's saved drafts
+ * Requires authentication
+ */
+export const getUserDrafts = async (
+  getToken: () => Promise<string | null>
+): Promise<{ drafts: any[] }> => {
+  return await fetchWithAuth(
+    `${API_URL}/api/content/drafts`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+    getToken
+  )
+}
+
+//-------------------------------------------------------
 //------------ Non-Auth API's  -------------------------
 //-------------------------------------------------------
 // Note: Authentication is now handled by Clerk

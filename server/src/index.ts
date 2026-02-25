@@ -9,6 +9,7 @@ import cors from "cors"
 
 // Routers
 import usersRoutes from "./routes/users.js"
+import contentRoutes from "./routes/content.js"
 
 console.log("2. Starting server setup...")
 console.log("3. Routers imported successfully")
@@ -35,6 +36,7 @@ app.get("/test", (req, res) => {
 
 // ✅ Main app routes
 app.use("/api/users", usersRoutes)
+app.use("/api/content", contentRoutes)
 
 console.log("4. Routes configured")
 
