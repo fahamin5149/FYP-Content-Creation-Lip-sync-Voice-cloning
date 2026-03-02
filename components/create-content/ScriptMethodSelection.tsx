@@ -2,10 +2,10 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, PenLine, Sparkles } from "lucide-react"
+import { ArrowLeft, PenLine, Sparkles, FileText } from "lucide-react"
 
 interface ScriptMethodSelectionProps {
-  onSelect: (method: "refinement" | "generation") => void
+  onSelect: (method: "refinement" | "generation" | "passthrough") => void
   onBack: () => void
 }
 
@@ -21,6 +21,12 @@ const methods = [
     title: "Generate new script",
     description: "Create a fresh script with guided inputs.",
     icon: Sparkles,
+  },
+  {
+    key: "passthrough" as const,
+    title: "Use my own script",
+    description: "Use your own script as-is — no AI modifications.",
+    icon: FileText,
   },
 ]
 
@@ -38,7 +44,7 @@ export default function ScriptMethodSelection({ onSelect, onBack }: ScriptMethod
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
       </CardHeader>
-      <CardContent className="grid gap-4 sm:grid-cols-2">
+      <CardContent className="grid gap-4 sm:grid-cols-3">
         {methods.map((method) => {
           const Icon = method.icon
           return (
