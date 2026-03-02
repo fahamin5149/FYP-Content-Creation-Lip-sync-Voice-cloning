@@ -80,7 +80,7 @@ export interface Database {
           script_id: string
           user_id: string
           language: string
-          method: 'refinement' | 'generated'
+          method: 'refinement' | 'generated' | 'passthrough'
           content: string
           parameters: ScriptParameters | null
           versions: ScriptVersion[]
@@ -94,7 +94,7 @@ export interface Database {
           script_id: string
           user_id: string
           language: string
-          method: 'refinement' | 'generated'
+          method: 'refinement' | 'generated' | 'passthrough'
           content: string
           parameters?: ScriptParameters | null
           versions?: ScriptVersion[]
@@ -108,12 +108,50 @@ export interface Database {
           script_id?: string
           user_id?: string
           language?: string
-          method?: 'refinement' | 'generated'
+          method?: 'refinement' | 'generated' | 'passthrough'
           content?: string
           parameters?: ScriptParameters | null
           versions?: ScriptVersion[]
           status?: 'draft' | 'approved' | 'in_progress'
           metadata?: ScriptMetadata | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      user_media: {
+        Row: {
+          id: string
+          clerk_id: string
+          media_type: 'audio' | 'video'
+          language: 'english' | 'urdu' | null
+          filename: string
+          file_path: string
+          mime_type: string | null
+          size_bytes: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clerk_id: string
+          media_type: 'audio' | 'video'
+          language?: 'english' | 'urdu' | null
+          filename: string
+          file_path: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clerk_id?: string
+          media_type?: 'audio' | 'video'
+          language?: 'english' | 'urdu' | null
+          filename?: string
+          file_path?: string
+          mime_type?: string | null
+          size_bytes?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -128,7 +166,7 @@ export interface Script {
   script_id: string
   user_id: string
   language: string
-  method: 'refinement' | 'generated'
+  method: 'refinement' | 'generated' | 'passthrough'
   content: string
   parameters: ScriptParameters | null
   versions: ScriptVersion[]
