@@ -13,7 +13,7 @@ const steps = [
 ] as const
 
 const mapStageToStep = (stage: Stage) => {
-  if (stage === "refinement" || stage === "generation") return "script"
+  if (stage === "refinement" || stage === "generation" || stage === "passthrough") return "script"
   return stage
 }
 
