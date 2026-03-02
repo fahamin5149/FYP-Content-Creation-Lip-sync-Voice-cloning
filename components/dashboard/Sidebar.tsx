@@ -20,7 +20,7 @@ import {
 
 const navItems = [
   { icon: Home, label: "Dashboard", href: "/dashboard", enabled: true },
-  { icon: Mic, label: "Voice Setup", href: "#", enabled: false },
+  { icon: Mic, label: "Setup", href: "/dashboard/setup", enabled: true },
   { icon: FileText, label: "Create Content", href: "/dashboard/create-content", enabled: true },
   { icon: Video, label: "My Videos", href: "#", enabled: false },
   { icon: Settings, label: "Settings", href: "#", enabled: false },
