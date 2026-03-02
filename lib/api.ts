@@ -179,6 +179,12 @@ export interface ScriptFeedbackParams {
   pacing: string
 }
 
+export interface ScriptPassthroughParams {
+  title: string
+  language: string
+  content: string
+}
+
 export interface ScriptResponse {
   scriptId: string
   content: string
@@ -318,6 +324,100 @@ export const getUserDrafts = async (
     getToken
   )
 }
+
+/**
+ * Save script directly without AI processing (passthrough)
+ * Requires authentication
+ */
+export const saveScriptDirectly = async (
+  params: ScriptPassthroughParams,
+  getToken: () => Promise<string | null>
+): Promise<ScriptResponse> => {
+  return await fetchWithAuth(
+    `${API_URL}/api/content/save-script-direct`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    },
+    getToken
+  )
+}
+
+//-------------------------------------------------------
+//------------ Media (Voice & Video Setup) API ---------
+//-------------------------------------------------------
+
+export interface MediaItem {
+  id: string
+  clerk_id: string
+  media_type: 'audio' | 'video'
+  language: 'english' | 'urdu' | null
+  filename: string
+  file_path: string
+  mime_type: string | null
+  size_bytes: number | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Upload an audio sample (english or urdu)
+ * Pass FormData with fields: file (Blob/File), language ('english'|'urdu')
+ * Do NOT set Content-Type header — browser sets it with the multipart boundary
+ */
+export const uploadAudio = async (
+  formData: FormData,
+  getToken: () => Promise<string | null>
+): Promise<{ success: boolean; data: MediaItem }> =>
+  fetchWithAuth(`${API_URL}/api/media/audio`, { method: 'POST', body: formData }, getToken)
+
+/**
+ * Upload a video sample
+ * Pass FormData with field: file (File)
+ */
+export const uploadVideo = async (
+  formData: FormData,
+  getToken: () => Promise<string | null>
+): Promise<{ success: boolean; data: MediaItem }> =>
+  fetchWithAuth(`${API_URL}/api/media/video`, { method: 'POST', body: formData }, getToken)
+
+/**
+ * Get user's audio samples, optionally filtered by language
+ */
+export const getUserAudio = async (
+  language: 'english' | 'urdu',
+  getToken: () => Promise<string | null>
+): Promise<{ success: boolean; data: MediaItem[] }> =>
+  fetchWithAuth(`${API_URL}/api/media/audio?language=${language}`, { method: 'GET' }, getToken)
+
+/**
+ * Get user's video samples
+ */
+export const getUserVideo = async (
+  getToken: () => Promise<string | null>
+): Promise<{ success: boolean; data: MediaItem[] }> =>
+  fetchWithAuth(`${API_URL}/api/media/video`, { method: 'GET' }, getToken)
+
+/**
+ * Delete a media item by id
+ */
+export const deleteMediaItem = async (
+  id: string,
+  getToken: () => Promise<string | null>
+): Promise<{ success: boolean }> =>
+  fetchWithAuth(`${API_URL}/api/media/${id}`, { method: 'DELETE' }, getToken)
+
+/**
+ * Returns the authenticated streaming URL for a media file.
+ * NOTE: HTML <audio>/<video> elements cannot send Authorization headers.
+ * Use the useMediaBlob() hook instead, which fetches as a Blob and returns
+ * a local object URL that can be safely used as an src attribute.
+ */
+export const getMediaStreamUrl = (id: string): string =>
+  `${API_URL}/api/media/file/${id}`
 
 //-------------------------------------------------------
 //------------ Non-Auth API's  -------------------------
