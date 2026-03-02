@@ -50,13 +50,13 @@ const pacingOptions = ["Slow", "Medium", "Fast"]
 export default function ScriptGeneration({ language, getToken, onComplete, onBack }: ScriptGenerationProps) {
   const [title, setTitle] = useState("")
   const [topic, setTopic] = useState("")
-  const [scriptType, setScriptType] = useState(scriptTypes[0])
-  const [tone, setTone] = useState(tones[0])
+  const [scriptType, setScriptType] = useState<string>("")
+  const [tone, setTone] = useState<string>("")
   const [targetAudience, setTargetAudience] = useState("")
   const [keyPoints, setKeyPoints] = useState("")
   const [duration, setDuration] = useState<number>(60)
   const [pacing, setPacing] = useState<string>("Medium")
-  const [introStyle, setIntroStyle] = useState(introStyles[0])
+  const [introStyle, setIntroStyle] = useState<string>("")
   const [includeHook, setIncludeHook] = useState(false)
   const [includeCTA, setIncludeCTA] = useState(false)
   const [includeTransitions, setIncludeTransitions] = useState(false)
@@ -141,7 +141,7 @@ export default function ScriptGeneration({ language, getToken, onComplete, onBac
             <Label className="text-white">Script type</Label>
             <Select value={scriptType} onValueChange={setScriptType}>
               <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
-                <SelectValue />
+                <SelectValue placeholder="Select script type" />
               </SelectTrigger>
               <SelectContent className="bg-black/90 text-white border-white/10">
                 {scriptTypes.map((type) => (
@@ -156,7 +156,7 @@ export default function ScriptGeneration({ language, getToken, onComplete, onBac
             <Label className="text-white">Tone</Label>
             <Select value={tone} onValueChange={setTone}>
               <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
-                <SelectValue />
+                <SelectValue placeholder="Select tone" />
               </SelectTrigger>
               <SelectContent className="bg-black/90 text-white border-white/10">
                 {tones.map((t) => (
@@ -227,7 +227,7 @@ export default function ScriptGeneration({ language, getToken, onComplete, onBac
             <Label className="text-white">Intro style</Label>
             <Select value={introStyle} onValueChange={setIntroStyle}>
               <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
-                <SelectValue />
+                <SelectValue placeholder="Select intro style" />
               </SelectTrigger>
               <SelectContent className="bg-black/90 text-white border-white/10">
                 {introStyles.map((style) => (
