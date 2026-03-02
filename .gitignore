@@ -32,3 +32,8 @@ venv/
 database.txt
 
 /TTS_Models
+
+# Large output/upload directories (not tracked in git)
+TTS_Output/
+uploads/
+server/uploads/
