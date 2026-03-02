@@ -10,6 +10,7 @@ import LanguageSelection from "@/components/create-content/LanguageSelection"
 import ScriptMethodSelection from "@/components/create-content/ScriptMethodSelection"
 import ScriptRefinement from "@/components/create-content/ScriptRefinement"
 import ScriptGeneration from "@/components/create-content/ScriptGeneration"
+import ScriptPassthrough from "@/components/create-content/ScriptPassthrough"
 import ScriptReview from "@/components/create-content/ScriptReview"
 import PlaceholderStage from "@/components/create-content/PlaceholderStage"
 import { ContentState, Stage } from "@/components/create-content/types"
@@ -94,7 +95,11 @@ export default function CreateContentPage() {
           <ScriptMethodSelection
             onSelect={(method) => {
               updateState({ method })
-              setStage(method === "refinement" ? "refinement" : "generation")
+              if (method === "passthrough") {
+                setStage("passthrough")
+              } else {
+                setStage(method === "refinement" ? "refinement" : "generation")
+              }
             }}
             onBack={() => setStage("language")}
           />
@@ -123,6 +128,18 @@ export default function CreateContentPage() {
             onBack={() => setStage("method")}
           />
         )
+      case "passthrough":
+        return (
+          <ScriptPassthrough
+            language={contentState.language}
+            getToken={getToken}
+            onComplete={(scriptId, script, parameters) => {
+              updateState({ scriptId, generatedScript: script, parameters })
+              setStage("review")
+            }}
+            onBack={() => setStage("method")}
+          />
+        )
       case "review":
         return (
           <ScriptReview
@@ -132,7 +149,13 @@ export default function CreateContentPage() {
             parameters={contentState.parameters}
             getToken={getToken}
             onProceed={() => setStage("tts")}
-            onRegenerate={() => setStage(contentState.method === "refinement" ? "refinement" : "generation")}
+            onRegenerate={() => {
+              if (contentState.method === "passthrough") {
+                setStage("passthrough")
+              } else {
+                setStage(contentState.method === "refinement" ? "refinement" : "generation")
+              }
+            }}
             onUpdateScript={(newScript) => updateState({ generatedScript: newScript })}
           />
         )
