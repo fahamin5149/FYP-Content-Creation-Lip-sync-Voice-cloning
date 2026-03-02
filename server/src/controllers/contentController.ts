@@ -410,3 +410,68 @@ export const getUserDrafts = async (req: Request, res: Response): Promise<void> 
     res.status(500).json({ error: 'Failed to retrieve drafts' });
   }
 };
+
+/**
+ * Save Script Directly (Passthrough)
+ * POST /api/content/save-script-direct
+ * Saves the user's own script without any AI processing
+ */
+export const saveScriptDirect = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.auth?.userId;
+    
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { title, language, content } = req.body;
+
+    // Validation
+    if (!title || !language || !content) {
+      res.status(400).json({ error: 'Missing required fields: title, language, content' });
+      return;
+    }
+
+    // Calculate metadata
+    const wordCount = content.trim().split(/\s+/).length;
+    const estimatedDuration = wordCount / 140; // assume medium pacing
+    const metadata: ScriptMetadata = { wordCount, estimatedDuration };
+
+    const scriptId = uuidv4();
+
+    // Save to Supabase
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('scripts')
+      .insert({
+        script_id: scriptId,
+        user_id: userId,
+        title,
+        language,
+        method: 'passthrough' as const,
+        content,
+        parameters: null,
+        metadata,
+        versions: [],
+        status: 'draft' as const
+      } as any)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ error: 'Failed to save script to database' });
+      return;
+    }
+
+    res.json({
+      scriptId,
+      content,
+      metadata
+    });
+  } catch (error: any) {
+    console.error('Save script direct error:', error);
+    res.status(500).json({ error: error.message || 'Failed to save script' });
+  }
+};
