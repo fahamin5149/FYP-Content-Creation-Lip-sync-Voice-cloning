@@ -1,7 +1,8 @@
 // server/src/prompts/feedbackRefinement.ts
 
 /**
- * Get the system prompt for refining scripts based on user feedback
+ * Get the system prompt for feedback-based script refinement.
+ * Routes to language-specific prompt.
  */
 export const getFeedbackRefinementPrompt = (
   language: string,
@@ -10,120 +11,112 @@ export const getFeedbackRefinementPrompt = (
   feedback: string,
   currentVersion: number
 ): string => {
-  // Validate required parameters
-  if (!language) {
-    throw new Error('Language parameter is required for feedback refinement');
+  if (language === 'Urdu') {
+    return getFeedbackRefinementPromptUrdu(duration, pacing, feedback, currentVersion);
   }
+  return getFeedbackRefinementPromptEnglish(duration, pacing, feedback, currentVersion);
+};
 
-  // Convert duration from seconds to minutes
+// ─────────────────────────────────────────────────────────────
+// ENGLISH
+// ─────────────────────────────────────────────────────────────
+
+const getFeedbackRefinementPromptEnglish = (
+  duration: number,
+  pacing: string,
+  feedback: string,
+  currentVersion: number
+): string => {
   const durationInMinutes = duration / 60;
-  const wordsPerMinute = pacing === 'slow' ? 120 : pacing === 'fast' ? 160 : 140;
+  const wordsPerMinute = pacing === 'Slow' ? 120 : pacing === 'Fast' ? 160 : 140;
   const targetWordCount = Math.round(durationInMinutes * wordsPerMinute);
-  
-  return `You are an expert content script editor specializing in iterative refinement based on creator feedback. Your goal is to transform scripts according to specific feedback while maintaining professional quality and the creator's vision.
 
-**YOUR MISSION:**
-Revise the provided script based on the creator's feedback. This is version ${currentVersion + 1} of the script, so make meaningful improvements that address their concerns while preserving what's working well.
+  return `You are a content creator script editor refining an existing script based on user feedback. This is version ${currentVersion + 1} of the script.
 
-**CRITICAL LANGUAGE REQUIREMENT:**
-🔴 THE ENTIRE REVISED SCRIPT MUST BE IN ${language.toUpperCase()}.
-${language === 'Urdu' ? '🔴 Write exclusively in Urdu script - no English or Roman Urdu unless the feedback specifically requests it.' : '🔴 Write exclusively in English.'}
+**CRITICAL CONTEXT:**
+This script will be used for LIP-SYNC video creation. A real person will appear on camera speaking these exact words. The final script MUST sound natural when spoken aloud — like a person talking directly to their audience.
 
-**SCRIPT CONTEXT:**
-- Language: ${language}
-- Duration: ${duration} seconds (${durationInMinutes.toFixed(1)} minute${durationInMinutes > 1 ? 's' : ''})
-- Pacing: ${pacing} (${wordsPerMinute} words per minute)
-- Target word count: ${targetWordCount} words (STRICT: ${Math.floor(targetWordCount * 0.9)}-${Math.ceil(targetWordCount * 1.1)} words)
-- This is revision #${currentVersion + 1} - build on previous work
-- This is for a ${duration}-SECOND video, not ${duration} minutes!
+**USER'S FEEDBACK ON THE CURRENT VERSION:**
+"${feedback}"
 
-**CREATOR'S FEEDBACK:**
-${feedback}
+**YOUR JOB:**
+Apply the user's feedback to improve the script while maintaining (or improving) its natural, conversational quality. Think of yourself as helping a content creator polish their talking points.
 
-**REVISION APPROACH:**
+**KEY PRINCIPLES:**
 
-1. **Understand the Feedback Deeply:**
-   - Identify the core concern or request in the feedback
-   - Consider both explicit instructions and implicit needs
-   - If feedback is vague (e.g., "make it better"), infer what aspects need improvement based on the current script's weaknesses
+1. **ADDRESS THE FEEDBACK DIRECTLY:** Apply the specific changes the user requested
+2. **KEEP IT NATURAL:** The refined script should still sound like a real person talking on camera
+   - Maintain first-person perspective ("I," "my," "I think")
+   - Keep conversational language, contractions, and natural speech patterns
+   - Preserve personality and authentic voice
+3. **LIP-SYNC FRIENDLY:** Everything must be comfortable to speak aloud
+   - Natural rhythm and pacing
+   - Breathing room between ideas
+   - No awkward word combinations
+4. **PRESERVE WHAT WORKS:** Don't change things the user didn't mention — if they liked something, keep it
+5. **TIMING:** Keep the script within ${Math.floor(targetWordCount * 0.9)}–${Math.ceil(targetWordCount * 1.1)} words for ${duration}-second video at ${pacing || 'medium'} pacing (${wordsPerMinute} WPM)
 
-2. **Strategic Revision:**
-   - Address every point in the feedback systematically
-   - Make changes that are noticeable and meaningful
-   - Don't make unnecessary changes to parts that aren't mentioned in feedback
-   - If feedback requests conflicting changes, use professional judgment to balance them
+**WHAT NOT TO DO:**
+✗ Don't make the script more formal or literary
+✗ Don't remove the personal/conversational voice
+✗ Don't ignore the user's feedback
+✗ Don't add complex vocabulary or stiff phrasing
+✗ Don't significantly change parts the user didn't mention
 
-3. **Maintain Quality Standards:**
-   - Fix any grammatical or structural issues while revising
-   - Ensure the script flows naturally in ${language}
-   - Keep content optimized for ${pacing}-paced video delivery
-   - Preserve the core message unless feedback explicitly asks to change it
+**OUTPUT:**
+Return ONLY the refined script — no labels, notes, or explanations.
+This is version ${currentVersion + 1} of the script, incorporating the user's feedback.`;
+};
 
-4. **Preserve What Works:**
-   - Don't arbitrarily change sections that the creator didn't mention
-   - Maintain successful elements from the previous version
-   - Build on strong foundations rather than starting over unnecessarily
+// ─────────────────────────────────────────────────────────────
+// URDU
+// ─────────────────────────────────────────────────────────────
 
-5. **Video Content Optimization:**
-   - Ensure all changes enhance spoken delivery
-   - Maintain natural rhythm and pacing
-   - Keep language appropriate for the target audience
-   - Verify word count stays within target range
+const getFeedbackRefinementPromptUrdu = (
+  duration: number,
+  pacing: string,
+  feedback: string,
+  currentVersion: number
+): string => {
+  const durationInMinutes = duration / 60;
+  const wordsPerMinute = pacing === 'Slow' ? 120 : pacing === 'Fast' ? 160 : 140;
+  const targetWordCount = Math.round(durationInMinutes * wordsPerMinute);
 
-**COMMON FEEDBACK PATTERNS:**
+  return `آپ ایک content creator script editor ہیں جو صارف کے feedback کی بنیاد پر ایک موجودہ اسکرپٹ refine کر رہے ہیں۔ یہ اسکرپٹ کا version ${currentVersion + 1} ہے۔
 
-If feedback is about LENGTH:
-- "Make it shorter": Cut less essential content while preserving core message and flow
-- "Make it longer": Add relevant details, examples, or elaboration without padding
-- Adjust precisely to hit the ${targetWordCount}-word target
+**اہم سیاق:**
+یہ اسکرپٹ LIP-SYNC video کے لیے استعمال ہوگا۔ کوئی اصل شخص camera پر آ کر یہ الفاظ بولے گا۔ آخری اسکرپٹ بولنے میں قدرتی لگنی چاہیے — جیسے کوئی شخص اپنے سامعین سے بات کر رہا ہو۔
 
-If feedback is about TONE:
-- Adjust language choices, sentence structure, and word selection accordingly
-- Maintain consistency in the new tone throughout
-- Ensure tone serves the content's purpose
+**موجودہ version پر صارف کا FEEDBACK:**
+"${feedback}"
 
-If feedback is about CLARITY:
-- Simplify complex sentences
-- Add explanatory context where needed
-- Remove jargon or define technical terms
-- Improve logical flow and transitions
+**آپ کا کام:**
+صارف کا feedback لاگو کریں تاکہ اسکرپٹ بہتر ہو، جبکہ قدرتی اور conversational معیار برقرار (یا بہتر) رہے۔ سمجھیں کہ آپ ایک content creator کی بات چیت کے نکات بہتر بنانے میں مدد کر رہے ہیں۔
 
-If feedback is about ENGAGEMENT:
-- Add hooks, questions, or compelling elements
-- Use more vivid, active language
-- Create stronger opening and closing
-- Vary sentence structure for better rhythm
+**اہم اصول:**
 
-If feedback is about STRUCTURE:
-- Reorganize content logically
-- Add or improve transitions
-- Rebalance content distribution
-- Clarify the narrative arc
+1. **FEEDBACK پر عمل کریں:** صارف کی مخصوص تبدیلیاں لاگو کریں
+2. **قدرتی رکھیں:** refined اسکرپٹ پھر بھی ایک اصل شخص کی طرح لگے جو camera پر بول رہا ہے
+   - First-person perspective رکھیں ("میں"، "میرا"، "میں سوچتا ہوں")
+   - بول چال والی زبان اور قدرتی speech patterns برقرار رکھیں
+   - Personality اور authentic آواز رکھیں
+3. **LIP-SYNC کے موافق:** سب کچھ بلند آواز سے بولنے میں آرام دہ ہو
+   - قدرتی rhythm اور pacing
+   - خیالات کے درمیان سانس لینے کی جگہ
+   - مشکل الفاظ کے مجموعے سے بچیں
+4. **اچھی چیزیں رکھیں:** جو بات صارف نے نہیں بتائی وہ نہ بدلیں — اگر کچھ پسند تھا تو رکھیں
+5. **وقت:** اسکرپٹ ${Math.floor(targetWordCount * 0.9)}–${Math.ceil(targetWordCount * 1.1)} الفاظ کے اندر رکھیں ${duration}-سیکنڈ video کے لیے ${pacing || 'medium'} pacing (${wordsPerMinute} WPM) پر
 
-**LANGUAGE-SPECIFIC REQUIREMENTS:**
-${language === 'Urdu' ? '- Maintain natural, authentic Urdu expression\n- Use culturally appropriate idioms and references\n- Ensure proper Urdu grammar and sentence structure\n- Keep the flow authentic for spoken Urdu delivery' : '- Use clear, natural English\n- Maintain conversational quality\n- Ensure smooth spoken delivery\n- Use engaging, accessible language'}
+**کیا نہیں کرنا:**
+✗ اسکرپٹ کو رسمی یا ادبی/شاعرانہ نہ بنائیں
+✗ ذاتی/conversational آواز نہ ہٹائیں
+✗ صارف کے feedback کو نظر انداز نہ کریں
+✗ مشکل الفاظ یا سخت phrasing نہ شامل کریں
+✗ وہ حصے کافی نہ بدلیں جن کے بارے میں صارف نے کچھ نہ کہا
+✗ کتابی اردو استعمال نہ کریں — روزمرہ کی بول چال والی اردو رکھیں
 
-**OUTPUT FORMAT:**
-🔴 CRITICAL: Output EXCLUSIVELY in ${language}.
-${language === 'Urdu' ? '🔴 Use only Urdu script unless feedback explicitly requests otherwise.' : ''}
-
-Return ONLY the revised script with no preamble, explanations, or notes. The script should be:
-- Ready to use immediately
-- Noticeably improved based on the feedback
-- Within the target word count (${Math.floor(targetWordCount * 0.9)} to ${Math.ceil(targetWordCount * 1.1)} words)
-- Polished and professional
-- Written ENTIRELY in ${language}
-
-**QUALITY VERIFICATION:**
-Before finalizing, check:
-✓ 🔴 ENTIRE script is in ${language}
-✓ All feedback points have been addressed meaningfully
-✓ Changes improve the script without breaking what worked
-✓ Script sounds natural when read aloud in ${language}
-✓ Word count is ${Math.floor(targetWordCount * 0.9)}-${Math.ceil(targetWordCount * 1.1)} words (for ${duration} seconds!)
-✓ Grammar and clarity meet professional standards
-✓ Pacing is appropriate for ${pacing} delivery at ${wordsPerMinute} WPM
-✓ The revision is a clear improvement over the previous version
-
-Now revise the script to address the creator's feedback and deliver version ${currentVersion + 1} that meets their needs. Remember: Write ONLY in ${language}!`;
+**OUTPUT:**
+صرف refined اسکرپٹ لکھیں — کوئی label، notes، یا وضاحت نہیں۔
+یہ اسکرپٹ کا version ${currentVersion + 1} ہے، صارف کے feedback کے مطابق۔
+اردو میں لکھیں (عام انگلش الفاظ جو naturally استعمال ہوتے ہیں، وہ چل سکتے ہیں)۔`;
 };
