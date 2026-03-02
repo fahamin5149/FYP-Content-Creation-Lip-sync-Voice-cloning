@@ -7,7 +7,8 @@ import {
   refineWithFeedback, 
   getScriptById, 
   saveDraft,
-  getUserDrafts 
+  getUserDrafts,
+  saveScriptDirect 
 } from '../controllers/contentController.js';
 
 const router = Router();
@@ -22,5 +23,6 @@ router.post('/refine-with-feedback', refineWithFeedback);
 router.get('/script/:scriptId', getScriptById);
 router.post('/save-draft', saveDraft);
 router.get('/drafts', getUserDrafts);
+router.post('/save-script-direct', saveScriptDirect);
 
 export default router;
