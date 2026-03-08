@@ -13,6 +13,7 @@ import ScriptGeneration from "@/components/create-content/ScriptGeneration"
 import ScriptPassthrough from "@/components/create-content/ScriptPassthrough"
 import ScriptReview from "@/components/create-content/ScriptReview"
 import PlaceholderStage from "@/components/create-content/PlaceholderStage"
+import TTSStage from "@/components/create-content/TTSStage"
 import { ContentState, Stage } from "@/components/create-content/types"
 import { getScriptById } from "@/lib/api"
 
@@ -28,6 +29,7 @@ export default function CreateContentPage() {
     scriptId: null,
     generatedScript: null,
     parameters: {},
+    ttsJobId: null,
   })
   const [loadingDraft, setLoadingDraft] = useState(!!draftId)
 
@@ -160,13 +162,28 @@ export default function CreateContentPage() {
           />
         )
       case "tts":
+        // English TTS via xtts_v2 voice cloning — Urdu not yet supported
+        if (contentState.language.toLowerCase() !== "english") {
+          return (
+            <PlaceholderStage
+              title="Text-to-Speech"
+              icon="\uD83D\uDD0A"
+              description="English TTS only — Urdu support coming soon."
+              onBack={() => setStage("review")}
+            />
+          )
+        }
         return (
-          <PlaceholderStage
-            title="Text-to-Speech"
-            icon="???"
-            description="Transform your script into natural-sounding voice narration."
+          <TTSStage
+            script={contentState.generatedScript!}
+            language={contentState.language}
+            scriptId={contentState.scriptId!}
+            getToken={getToken}
+            onComplete={(jobId) => {
+              updateState({ ttsJobId: jobId })
+              setStage("video")
+            }}
             onBack={() => setStage("review")}
-            onNext={() => setStage("video")}
           />
         )
       case "video":

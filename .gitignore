@@ -34,9 +34,14 @@ database.txt
 /TTS_Models
 
 # Large output/upload directories (not tracked in git)
+# Ignore file contents but keep folder structure via .gitkeep
 TTS_Output/
-uploads/
-server/uploads/
+uploads/**
+!uploads/**/
+!uploads/**/.gitkeep
+server/uploads/**
+!server/uploads/**/
+!server/uploads/**/.gitkeep
 
 prompts/
 
@@ -45,3 +50,5 @@ fyp-standee-groupmate-fixed (1).html
 fyp-standee-mockup copy.html
 fyp-standee-mockup.html
 urdu_voice_clone_logic.txt
+
+coqui-ai-TTS/

@@ -3,6 +3,35 @@ import type { Request, Response, NextFunction } from "express"
 import { ClerkExpressWithAuth } from "@clerk/clerk-sdk-node"
 import { clerkClient } from "@clerk/clerk-sdk-node"
 
+/**
+ * Middleware: Allow requests carrying the INTERNAL_API_SECRET header.
+ * Used for server-to-server calls (e.g. Next.js → Node.js after long synthesis)
+ * where the Clerk JWT may have expired. The caller must supply the userId in
+ * the X-Internal-User-Id header so ownership checks still work.
+ */
+export function requireInternalOrAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const secret = req.headers['x-internal-secret'] as string | undefined
+  const expectedSecret = process.env.INTERNAL_API_SECRET
+
+  if (expectedSecret && secret === expectedSecret) {
+    const userId = req.headers['x-internal-user-id'] as string | undefined
+    if (!userId) {
+      res.status(400).json({ error: 'X-Internal-User-Id header required with internal secret' })
+      return
+    }
+    req.auth = { userId, getToken: async () => null }
+    next()
+    return
+  }
+
+  // Fall back to standard Clerk JWT auth
+  requireAuth(req, res, next)
+}
+
 // Extend Express Request type to include auth data
 declare global {
   namespace Express {

@@ -420,6 +420,99 @@ export const getMediaStreamUrl = (id: string): string =>
   `${API_URL}/api/media/file/${id}`
 
 //-------------------------------------------------------
+//------------ TTS (Voice Cloning) API -----------------
+//-------------------------------------------------------
+
+export interface TTSRequest {
+  scriptId: string
+  text: string
+  language: string
+  mediaIds: string[]
+}
+
+export interface TTSResponse {
+  success: boolean
+  jobId: string
+  durationSeconds: number
+  message: string
+}
+
+export interface ExistingTTSJob {
+  id: string
+  status: string
+  output_audio_path: string
+  duration_seconds: number | null
+  created_at: string
+  input_media_ids: string[]
+}
+
+/**
+ * Check if a completed TTS job already exists for this script on disk.
+ * Returns { exists: false } if none found or the file has been deleted.
+ */
+export const getExistingTTSJob = async (
+  scriptId: string,
+  getToken: () => Promise<string | null>
+): Promise<{ exists: boolean; data?: ExistingTTSJob }> => {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(`${API_URL}/api/tts/jobs/by-script/${scriptId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (res.status === 404) return { exists: false }
+  if (!res.ok) return { exists: false }
+
+  return res.json()
+}
+
+/**
+ * Trigger English voice cloning via the TTS pipeline.
+ * Calls the Next.js API route which orchestrates:
+ *   Node.js (job create + path resolve) → FastAPI (xtts_v2) → Node.js (job update)
+ */
+export const generateTTS = async (
+  params: TTSRequest,
+  getToken: () => Promise<string | null>
+): Promise<TTSResponse> => {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch('/api/process/tts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(params),
+  })
+
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'TTS generation failed')
+  return data
+}
+
+/**
+ * Stream the generated TTS output as a Blob URL.
+ * Uses the Node.js backend streaming endpoint (same pattern as useMediaBlob).
+ */
+export const getTTSOutputBlobUrl = async (
+  jobId: string,
+  getToken: () => Promise<string | null>
+): Promise<string> => {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(`${API_URL}/api/tts/output/${jobId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Failed to fetch TTS output')
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}
+
+//-------------------------------------------------------
 //------------ Non-Auth API's  -------------------------
 //-------------------------------------------------------
 // Note: Authentication is now handled by Clerk

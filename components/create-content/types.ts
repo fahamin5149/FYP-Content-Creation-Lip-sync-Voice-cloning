@@ -14,4 +14,5 @@ export interface ContentState {
   scriptId: string | null
   generatedScript: string | null
   parameters: any
+  ttsJobId: string | null
 }

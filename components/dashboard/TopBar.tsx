@@ -2,6 +2,7 @@
 "use client"
 
 import { UserButton, useUser } from "@clerk/nextjs"
+import { useEffect, useState } from "react"
 import {
   Bell,
   Globe,
@@ -20,7 +21,12 @@ interface TopBarProps {
 
 export function TopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
   const { user } = useUser()
-  
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-black/40 backdrop-blur-xl">
       <div className="flex h-16 items-center px-4 gap-4">
@@ -63,9 +69,11 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
           </Tooltip>
 
           <div className="flex items-center gap-2">
-            <span className="hidden md:inline-block font-medium text-white">
-              {user?.fullName || user?.firstName || "User"}
-            </span>
+            {mounted && (
+              <span className="hidden md:inline-block font-medium text-white">
+                {user?.fullName || user?.firstName || "User"}
+              </span>
+            )}
             <UserButton
               appearance={{
                 elements: {
