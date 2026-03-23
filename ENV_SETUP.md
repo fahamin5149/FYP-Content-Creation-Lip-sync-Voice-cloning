@@ -29,6 +29,10 @@ CLERK_SECRET_KEY=sk_test_YOUR_SECRET_KEY_HERE
 
 # Backend API URL
 NEXT_PUBLIC_API_URL=http://localhost:5000
+
+# Python TTS Services
+PYTHON_TTS_URL=http://localhost:8000     # English xtts_v2 service
+URDU_TTS_URL=http://localhost:8001       # Urdu Parler-TTS + OpenVoice V2 service
 ```
 
 ---

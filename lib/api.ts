@@ -467,6 +467,40 @@ export const getExistingTTSJob = async (
   return res.json()
 }
 
+// ── Urdu TTS request type ────────────────────────────────────────────────────
+export interface UrduTTSRequest {
+  scriptId: string
+  text: string
+  mediaIds: string[]
+  stylePreset: string
+}
+
+/**
+ * Trigger Urdu voice cloning via the two-stage pipeline.
+ * Calls the Next.js API route which orchestrates:
+ *   Node.js (job create + path resolve) → FastAPI :8001 (Parler-TTS + OpenVoice V2) → Node.js (job update)
+ */
+export const generateUrduTTS = async (
+  params: UrduTTSRequest,
+  getToken: () => Promise<string | null>
+): Promise<TTSResponse> => {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch('/api/process/urdu-tts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(params),
+  })
+
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Urdu TTS generation failed')
+  return data
+}
+
 /**
  * Trigger English voice cloning via the TTS pipeline.
  * Calls the Next.js API route which orchestrates:

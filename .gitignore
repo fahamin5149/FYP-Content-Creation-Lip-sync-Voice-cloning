@@ -18,6 +18,8 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.example
+!server/.env.example
 
 # vercel
 .vercel
@@ -28,6 +30,11 @@ next-env.d.ts
 
 # Python virtual environment
 venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
 
 database.txt
 
@@ -51,4 +58,35 @@ fyp-standee-mockup copy.html
 fyp-standee-mockup.html
 urdu_voice_clone_logic.txt
 
-coqui-ai-TTS/
+# Python virtual environments (named venvs — not just 'venv/')
+english_tts_env/
+urdu_tts_env/
+
+# English TTS runtime artifacts
+English_TTS/englishttts/Output_audios/
+English_TTS/englishttts/input_audios/
+
+# Compiled TypeScript in server/src (tsc outputs in-place, no outDir set)
+server/src/**/*.js
+server/src/**/*.js.map
+server/src/**/*.d.ts.map
+server/src/config/**/*.d.ts
+server/src/controllers/**/*.d.ts
+server/src/db/**/*.d.ts
+server/src/middleware/**/*.d.ts
+server/src/routes/**/*.d.ts
+server/src/index.d.ts
+
+# Claude Code workspace
+.claude/
+
+# Windows artifacts
+nul
+
+# One-off utility/debug scripts
+server/fix_db.js
+server/fix_db.ps1
+server/insert_user.js
+
+# Old auth backup
+_backup_old_auth/

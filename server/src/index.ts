@@ -47,7 +47,11 @@ console.log("4. Routes configured")
 // Ensure PORT is a number
 const PORT: number = parseInt(process.env.PORT ?? "5000", 10)
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`5. Server running on: ${PORT}`)
   console.log("6. All files loaded successfully!")
+})
+
+server.on("error", (err) => {
+  console.error("Server error:", err)
 })

@@ -60,9 +60,10 @@ export const resolveMediaPaths = async (req: Request, res: Response): Promise<vo
 
 export const createTTSJob = async (req: Request, res: Response): Promise<void> => {
   const userId = req.auth!.userId
-  const { scriptId, inputMediaIds } = req.body as {
+  const { scriptId, inputMediaIds, language } = req.body as {
     scriptId: string
     inputMediaIds: string[]
+    language?: string
   }
 
   if (!scriptId || !Array.isArray(inputMediaIds)) {
@@ -97,6 +98,7 @@ export const createTTSJob = async (req: Request, res: Response): Promise<void> =
       script_id: scriptUUID,
       input_media_ids: inputMediaIds,
       status: 'pending',
+      language: language || 'english',
     } as any)
     .select()
     .single()

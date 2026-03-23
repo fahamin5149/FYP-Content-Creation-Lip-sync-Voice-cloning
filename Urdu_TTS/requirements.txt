@@ -1,0 +1,37 @@
+# Urdu TTS Service — Key Dependencies
+# =====================================
+# This service runs inside the pre-built virtual environment at:
+#   F:\urdu_tts_testing\urdu_tts_env\
+#
+# All packages below are already installed in that environment.
+# This file is for documentation and future environment recreation only.
+#
+# To recreate the environment from scratch (not needed if using existing venv):
+#   python -m venv urdu_tts_env
+#   pip install -r requirements.txt
+
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi==0.135.1
+uvicorn==0.41.0
+python-multipart==0.0.22
+
+# ── Deep learning ─────────────────────────────────────────────────────────────
+torch==2.7.1+cu118
+torchaudio==2.7.1+cu118
+--extra-index-url https://download.pytorch.org/whl/cu118
+
+# ── Stage 1: Indic Parler-TTS ─────────────────────────────────────────────────
+parler_tts @ git+https://github.com/huggingface/parler-tts.git@d108732cd57788ec86bc857d99a6cabd66663d68
+transformers==4.46.1
+accelerate==1.12.0
+
+# ── Stage 2: MyShell OpenVoice V2 ─────────────────────────────────────────────
+-e git+https://github.com/myshell-ai/OpenVoice.git@74a1d147b17a8c3092dd5430504bd83ef6c7eb23#egg=MyShell_OpenVoice
+
+# ── Audio processing ───────────────────────────────────────────────────────────
+soundfile==0.13.1
+librosa==0.11.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+numpy==2.3.5
+python-dotenv==1.2.2

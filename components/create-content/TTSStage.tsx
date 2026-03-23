@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   getUserAudio,
   generateTTS,
+  generateUrduTTS,
   getTTSOutputBlobUrl,
   getExistingTTSJob,
   MediaItem,
@@ -52,15 +53,36 @@ interface TTSStageProps {
 
 type Step = "checking" | "select" | "generating" | "result"
 
-// ── Rotating status messages for the generating step ────────────────────────
+// ── Rotating status messages — English (xtts_v2) ────────────────────────────
 
-const STATUS_PHASES = [
-  { at: 0, message: "Preparing reference audio…" },
-  { at: 5000, message: "Analyzing voice characteristics…" },
+const ENGLISH_STATUS_PHASES = [
+  { at: 0,     message: "Preparing reference audio…" },
+  { at: 5000,  message: "Analyzing voice characteristics…" },
   { at: 15000, message: "Synthesizing speech…" },
   { at: 35000, message: "Finalizing output…" },
   { at: 60000, message: "Almost there — xtts_v2 is working hard…" },
 ]
+
+// ── Rotating status messages — Urdu (Parler-TTS + OpenVoice V2) ─────────────
+
+const URDU_STATUS_PHASES = [
+  { at: 0,     message: "Preparing reference audio…" },
+  { at: 3000,  message: "Generating Urdu base audio (Parler-TTS)…" },
+  { at: 12000, message: "Extracting voice tone color (OpenVoice V2)…" },
+  { at: 22000, message: "Applying voice transfer…" },
+  { at: 35000, message: "Finalizing output…" },
+]
+
+// ── Urdu voice style presets ─────────────────────────────────────────────────
+
+const STYLE_PRESETS = [
+  { id: "neutral_male",   label: "Neutral Male",   desc: "Clear voice, moderate pace" },
+  { id: "neutral_female", label: "Neutral Female",  desc: "Clear voice, moderate pace" },
+  { id: "slow_clear",     label: "Slow & Clear",    desc: "Deliberate, careful enunciation" },
+  { id: "expressive",     label: "Expressive",      desc: "Dynamic, natural emotion" },
+] as const
+
+type StylePresetId = typeof STYLE_PRESETS[number]["id"]
 
 // ── Waveform visualizer — deterministic bar geometry ────────────────────────
 const BAR_COUNT = 60
@@ -159,6 +181,10 @@ export default function TTSStage({
   onComplete,
   onBack,
 }: TTSStageProps) {
+  // ─ Language helpers ──────────────────────────────────────────────────────
+  const isUrdu = language.toLowerCase() === "urdu"
+  const activePhases = isUrdu ? URDU_STATUS_PHASES : ENGLISH_STATUS_PHASES
+
   // ─ State ────────────────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("checking")
   const [audioItems, setAudioItems] = useState<MediaItem[]>([])
@@ -166,8 +192,11 @@ export default function TTSStage({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
 
+  // Urdu voice style preset (only used when isUrdu)
+  const [stylePreset, setStylePreset] = useState<StylePresetId>("neutral_male")
+
   // Generating step
-  const [statusMsg, setStatusMsg] = useState(STATUS_PHASES[0].message)
+  const [statusMsg, setStatusMsg] = useState(activePhases[0].message)
   const timersRef = useRef<NodeJS.Timeout[]>([])
 
   // Result step
@@ -312,11 +341,11 @@ export default function TTSStage({
     setError(null)
     setStep("generating")
 
-    // Start rotating status messages
+    // Start rotating status messages (language-aware phases)
     timersRef.current.forEach(clearTimeout)
     timersRef.current = []
-    setStatusMsg(STATUS_PHASES[0].message)
-    STATUS_PHASES.forEach(({ at, message }) => {
+    setStatusMsg(activePhases[0].message)
+    activePhases.forEach(({ at, message }) => {
       if (at > 0) {
         const t = setTimeout(() => setStatusMsg(message), at)
         timersRef.current.push(t)
@@ -324,15 +353,27 @@ export default function TTSStage({
     })
 
     try {
-      const res = await generateTTS(
-        {
-          scriptId,
-          text: script,
-          language: language.toLowerCase() === "urdu" ? "ur" : "en",
-          mediaIds: Array.from(selectedIds),
-        },
-        getToken
-      )
+      // Branch on language: Urdu uses two-stage Parler-TTS + OpenVoice V2 pipeline;
+      // English uses the existing xtts_v2 pipeline — no changes to that flow.
+      const res = isUrdu
+        ? await generateUrduTTS(
+            {
+              scriptId,
+              text: script,
+              mediaIds: Array.from(selectedIds),
+              stylePreset,
+            },
+            getToken
+          )
+        : await generateTTS(
+            {
+              scriptId,
+              text: script,
+              language: "en",
+              mediaIds: Array.from(selectedIds),
+            },
+            getToken
+          )
 
       setJobId(res.jobId)
       setDurationSeconds(res.durationSeconds)
@@ -494,6 +535,37 @@ export default function TTSStage({
             </>
           )}
 
+          {/* Voice style preset selector — Urdu only */}
+          {isUrdu && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-white/40 mb-2">
+                Voice style
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {STYLE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setStylePreset(preset.id)}
+                    className={`
+                      rounded-xl border p-3 text-left transition-all duration-150
+                      ${
+                        stylePreset === preset.id
+                          ? "border-primary bg-primary/10 shadow-sm shadow-primary/20"
+                          : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.07]"
+                      }
+                    `}
+                  >
+                    <p className={`text-sm font-medium ${stylePreset === preset.id ? "text-white" : "text-white/70"}`}>
+                      {preset.label}
+                    </p>
+                    <p className="text-xs text-white/40 mt-0.5">{preset.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Script preview */}
           <div className="rounded-xl border border-white/10 bg-black/40 p-4">
             <p className="text-xs uppercase tracking-wide text-white/40 mb-2">
@@ -541,7 +613,9 @@ export default function TTSStage({
             <h3 className="text-xl font-semibold text-white">Cloning voice…</h3>
             <p className="text-white/60 text-sm animate-pulse">{statusMsg}</p>
             <p className="text-white/40 text-xs mt-4">
-              This may take 30–90 seconds depending on script length
+              {isUrdu
+                ? "Typically 15–40 seconds on GPU — Parler-TTS then OpenVoice V2"
+                : "This may take 30–90 seconds depending on script length"}
             </p>
           </div>
 
@@ -614,7 +688,7 @@ export default function TTSStage({
             <div className="flex-1 min-w-0">
               <p className="truncate text-[15px] font-semibold text-white">Cloned Voice Output</p>
               <p className="mt-0.5 text-xs text-white/45">
-                xtts_v2 · {language}
+                {isUrdu ? "Parler-TTS + OpenVoice V2" : "xtts_v2"} · {language}
                 {audioDuration > 0 && ` · ${formatTime(audioDuration)}`}
               </p>
             </div>

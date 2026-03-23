@@ -162,17 +162,6 @@ export default function CreateContentPage() {
           />
         )
       case "tts":
-        // English TTS via xtts_v2 voice cloning — Urdu not yet supported
-        if (contentState.language.toLowerCase() !== "english") {
-          return (
-            <PlaceholderStage
-              title="Text-to-Speech"
-              icon="\uD83D\uDD0A"
-              description="English TTS only — Urdu support coming soon."
-              onBack={() => setStage("review")}
-            />
-          )
-        }
         return (
           <TTSStage
             script={contentState.generatedScript!}

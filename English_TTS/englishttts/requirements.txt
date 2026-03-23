@@ -1,0 +1,9 @@
+# English TTS FastAPI Service — Dependencies
+# TTS and torch are expected to be pre-installed in the english_tts_env venv
+# (via `pip install -e ../../coqui-ai-TTS` from the project root)
+
+fastapi
+uvicorn[standard]
+librosa
+soundfile
+python-multipart

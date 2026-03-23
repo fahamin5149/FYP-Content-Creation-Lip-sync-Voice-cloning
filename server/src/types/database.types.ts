@@ -79,6 +79,7 @@ export interface Database {
           id: string
           script_id: string
           user_id: string
+          title: string
           language: string
           method: 'refinement' | 'generated' | 'passthrough'
           content: string
@@ -93,6 +94,7 @@ export interface Database {
           id?: string
           script_id: string
           user_id: string
+          title: string
           language: string
           method: 'refinement' | 'generated' | 'passthrough'
           content: string
@@ -107,6 +109,7 @@ export interface Database {
           id?: string
           script_id?: string
           user_id?: string
+          title?: string
           language?: string
           method?: 'refinement' | 'generated' | 'passthrough'
           content?: string
@@ -165,6 +168,7 @@ export interface Script {
   id: string
   script_id: string
   user_id: string
+  title: string
   language: string
   method: 'refinement' | 'generated' | 'passthrough'
   content: string
