@@ -66,7 +66,9 @@ urdu_tts_env/
 English_TTS/englishttts/Output_audios/
 English_TTS/englishttts/input_audios/
 
-# Compiled TypeScript in server/src (tsc outputs in-place, no outDir set)
+# Compiled TypeScript output
+server/dist/
+# Legacy: compiled TS artifacts in server/src (before outDir was set)
 server/src/**/*.js
 server/src/**/*.js.map
 server/src/**/*.d.ts.map
