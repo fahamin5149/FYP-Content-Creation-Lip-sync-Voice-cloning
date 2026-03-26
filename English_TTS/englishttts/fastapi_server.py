@@ -49,7 +49,10 @@ async def lifespan(app: FastAPI):
     DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     logger.info(f"Output directory ready: {DEFAULT_OUTPUT_DIR}")
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # Some extracted/partial venvs may have a minimal/incomplete torch build
+    # where `torch.cuda` isn't present. Fallback to CPU in that case.
+    cuda = getattr(torch, "cuda", None)
+    device = "cuda" if cuda is not None and cuda.is_available() else "cpu"
     logger.info(f"Loading xtts_v2 model on {device} …")
 
     from TTS.api import TTS

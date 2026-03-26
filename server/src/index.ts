@@ -12,17 +12,25 @@ import usersRoutes from "./routes/users.js"
 import contentRoutes from "./routes/content.js"
 import mediaRoutes from "./routes/media.js"
 import ttsRoutes from "./routes/tts.js"
+import lipsyncRoutes from "./routes/lipsync.js"
 
 console.log("2. Starting server setup...")
 console.log("3. Routers imported successfully")
 
 const app = express()
 
-// ✅ CORS - IMPORTANT: must allow credentials for sessions
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  credentials: true, // Allow cookies
-}))
+// CORS: allow localhost and 127.0.0.1 on any port in development (strict FRONTEND_URL in production)
+const corsOrigin =
+  process.env.NODE_ENV === "production"
+    ? process.env.FRONTEND_URL || "http://localhost:3000"
+    : true // reflect request Origin — avoids failures when using 127.0.0.1 vs localhost
+
+app.use(
+  cors({
+    origin: corsOrigin,
+    credentials: true,
+  })
+)
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -41,6 +49,7 @@ app.use("/api/users", usersRoutes)
 app.use("/api/content", contentRoutes)
 app.use("/api/media", mediaRoutes)
 app.use("/api/tts", ttsRoutes)
+app.use("/api/lipsync", lipsyncRoutes)
 
 console.log("4. Routes configured")
 

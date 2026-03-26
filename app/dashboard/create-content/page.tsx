@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@clerk/nextjs"
 import { useSearchParams } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout"
 import ProgressIndicator from "@/components/create-content/ProgressIndicator"
 import LanguageSelection from "@/components/create-content/LanguageSelection"
@@ -12,8 +13,8 @@ import ScriptRefinement from "@/components/create-content/ScriptRefinement"
 import ScriptGeneration from "@/components/create-content/ScriptGeneration"
 import ScriptPassthrough from "@/components/create-content/ScriptPassthrough"
 import ScriptReview from "@/components/create-content/ScriptReview"
-import PlaceholderStage from "@/components/create-content/PlaceholderStage"
 import TTSStage from "@/components/create-content/TTSStage"
+import VideoStage from "@/components/create-content/VideoStage"
 import { ContentState, Stage } from "@/components/create-content/types"
 import { getScriptById } from "@/lib/api"
 
@@ -176,13 +177,19 @@ export default function CreateContentPage() {
           />
         )
       case "video":
-        return (
-          <PlaceholderStage
-            title="Video generation"
-            icon="??"
-            description="Create stunning visuals to pair with your voiceover."
+        return contentState.ttsJobId ? (
+          <VideoStage
+            ttsJobId={contentState.ttsJobId}
+            getToken={getToken}
             onBack={() => setStage("tts")}
           />
+        ) : (
+          <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-white/80">
+            <p className="mb-4">Complete the TTS step first so we have audio for lip-sync.</p>
+            <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => setStage("tts")}>
+              Back to TTS
+            </Button>
+          </div>
         )
     }
   }

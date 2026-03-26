@@ -26,7 +26,9 @@ transformers==4.46.1
 accelerate==1.12.0
 
 # ── Stage 2: MyShell OpenVoice V2 ─────────────────────────────────────────────
--e git+https://github.com/myshell-ai/OpenVoice.git@74a1d147b17a8c3092dd5430504bd83ef6c7eb23#egg=MyShell_OpenVoice
+# Default pip install pulls faster-whisper -> av (PyAV), which often fails on Python 3.11.
+# Install without deps after the rest of the venv exists:
+#   pip install --no-deps git+https://github.com/myshell-ai/OpenVoice.git@74a1d147b17a8c3092dd5430504bd83ef6c7eb23
 
 # ── Audio processing ───────────────────────────────────────────────────────────
 soundfile==0.13.1

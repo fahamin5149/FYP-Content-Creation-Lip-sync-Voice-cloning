@@ -16,7 +16,7 @@ Endpoints:
 
 Environment variables (set in run_server.bat or shell):
   OPENVOICE_CONVERTER_DIR   Absolute path to checkpoints_v2/converter folder
-                            Default: F:/urdu_tts_testing/checkpoints_v2/converter
+                            Default: <project_root>/checkpoints_v2/converter
   URDU_PROFILES_DIR         Directory for per-user adaptive .pt embeddings
                             Default: <project_root>/TTS_Output/urdu_profiles
 """
@@ -60,7 +60,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OPENVOICE_CONVERTER_DIR = Path(
     os.environ.get(
         "OPENVOICE_CONVERTER_DIR",
-        "F:/urdu_tts_testing/checkpoints_v2/converter",
+        str(PROJECT_ROOT / "checkpoints_v2" / "converter"),
     )
 )
 
@@ -125,42 +125,54 @@ async def lifespan(app: FastAPI):
     device = os.environ.get("URDU_DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Device        : {device}")
 
-    try:
+    def _load_models(target_device: str) -> None:
+        global tts_model, tts_tokenizer, tone_color_converter
+        local_device = target_device
+
         # ── Load Indic Parler-TTS ─────────────────────────────────────────────
         model_name = "ai4bharat/indic-parler-tts"
-        logger.info(f"Loading Indic Parler-TTS ({model_name}) ...")
-        tts_model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
+        logger.info(f"Loading Indic Parler-TTS ({model_name}) on {local_device} ...")
+        tts_model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(local_device)
         tts_tokenizer = AutoTokenizer.from_pretrained(model_name)
         logger.info("Parler-TTS loaded.")
 
         # ── Load OpenVoice V2 Tone Color Converter ────────────────────────────
         config_path = str(OPENVOICE_CONVERTER_DIR / "config.json")
         ckpt_path = str(OPENVOICE_CONVERTER_DIR / "checkpoint.pth")
-        logger.info(f"Loading OpenVoice V2 converter from {OPENVOICE_CONVERTER_DIR} ...")
-        tone_color_converter = ToneColorConverter(config_path, device=device)
+        logger.info(f"Loading OpenVoice V2 converter from {OPENVOICE_CONVERTER_DIR} on {local_device} ...")
+        tone_color_converter = ToneColorConverter(config_path, device=local_device)
         tone_color_converter.load_ckpt(ckpt_path)
         logger.info("OpenVoice V2 loaded.")
 
+    try:
+        _load_models(device)
     except Exception:
-        # Write the full traceback to a log file so it is never lost even if
-        # the console window closes before it can be read.
+        # If CUDA is requested but the CUDA runtime DLLs are missing (common on some
+        # systems), we fall back to CPU so the service still works.
         error_text = _traceback.format_exc()
-        logger.error("=" * 60)
-        logger.error("STARTUP FAILED — full traceback below:")
-        logger.error(error_text)
-        log_path = PROJECT_ROOT / "urdu_tts_error.log"
-        try:
-            import time as _time
-            with open(log_path, "w", encoding="utf-8") as _f:
-                _f.write(f"Startup failed at: {_time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-                _f.write(f"Device attempted : {device}\n")
-                _f.write(f"OPENVOICE_CONVERTER_DIR: {OPENVOICE_CONVERTER_DIR}\n\n")
-                _f.write(error_text)
-            logger.error(f"Error saved to: {log_path}")
-        except Exception:
-            pass
-        logger.error("=" * 60)
-        raise
+        is_cublas_issue = ("cublas" in error_text.lower()) and ("dll" in error_text.lower())
+        if device != "cpu" and is_cublas_issue:
+            logger.warning("CUDA runtime missing (likely cublas). Falling back to CPU for Urdu TTS.")
+            _load_models("cpu")
+        else:
+            # Write the full traceback to a log file so it is never lost even if
+            # the console window closes before it can be read.
+            logger.error("=" * 60)
+            logger.error("STARTUP FAILED — full traceback below:")
+            logger.error(error_text)
+            log_path = PROJECT_ROOT / "urdu_tts_error.log"
+            try:
+                import time as _time
+                with open(log_path, "w", encoding="utf-8") as _f:
+                    _f.write(f"Startup failed at: {_time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+                    _f.write(f"Device attempted : {device}\n")
+                    _f.write(f"OPENVOICE_CONVERTER_DIR: {OPENVOICE_CONVERTER_DIR}\n\n")
+                    _f.write(error_text)
+                logger.error(f"Error saved to: {log_path}")
+            except Exception:
+                pass
+            logger.error("=" * 60)
+            raise
 
     logger.info("Urdu TTS service ready on :8001")
     yield

@@ -1,94 +1,53 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
+# clerk configuration (can include secrets)
+/.clerk/
 
-# next.js
-/.next/
-/out/
+# env/secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
 
-# production
-/build
-
-# debug
+# Node / Next
+node_modules/
+.next/
+out/
+dist/
+coverage/
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# env files (block all .env variants, allow .env.example everywhere)
-.env*
-!*.env.example
-!.env.example
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# Python virtual environment
-venv/
-
-# Python cache files
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*_env/
+English_TTS/**/english_tts_env/
+Urdu_TTS/**/urdu_tts_env/
+Wav2Lip_Service/wav2lip_env/
 
-database.txt
+# IDE/OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
 
-/TTS_Models
-
-# Large output/upload directories (not tracked in git)
-# Ignore file contents but keep folder structure via .gitkeep
+# Generated assets / local outputs
 TTS_Output/
-uploads/**
-!uploads/**/
-!uploads/**/.gitkeep
-server/uploads/**
-!server/uploads/**/
-!server/uploads/**/.gitkeep
+LIPSYNC_Output/
+uploads/
+*.log
 
-prompts/
-
-coqui-ai-TTS/
-fyp-standee-groupmate-fixed (1).html
-fyp-standee-mockup copy.html
-fyp-standee-mockup.html
-urdu_voice_clone_logic.txt
-
-# Python virtual environments (named venvs — not just 'venv/')
-english_tts_env/
-urdu_tts_env/
-
-# English TTS runtime artifacts
-English_TTS/englishttts/Output_audios/
-English_TTS/englishttts/input_audios/
-
-# Compiled TypeScript output
-server/dist/
-# Legacy: compiled TS artifacts in server/src (before outDir was set)
-server/src/**/*.js
-server/src/**/*.js.map
-server/src/**/*.d.ts.map
-server/src/config/**/*.d.ts
-server/src/controllers/**/*.d.ts
-server/src/db/**/*.d.ts
-server/src/middleware/**/*.d.ts
-server/src/routes/**/*.d.ts
-server/src/index.d.ts
-
-# Claude Code workspace
-.claude/
-
-# Windows artifacts
-nul
-
-# One-off utility/debug scripts
-server/fix_db.js
-server/fix_db.ps1
-server/insert_user.js
-
-# Old auth backup
-_backup_old_auth/
+checkpoints_v2/converter/checkpoint.pth

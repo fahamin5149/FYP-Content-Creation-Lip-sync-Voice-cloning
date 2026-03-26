@@ -17,6 +17,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    const effectiveJobId = jobId || `lipsync_${Date.now()}`
+    const settingsWithJob = { ...syncSettings, jobId: effectiveJobId }
+
     // Analyze video first
     const videoAnalysis = await lipSyncService.analyzeVideo(videoPath)
     
@@ -27,17 +30,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Use real lip sync service
     const result = await lipSyncService.syncLipMovement(
       videoPath, 
       audioPath, 
       userId, 
-      syncSettings
+      settingsWithJob
     )
 
     return NextResponse.json({
       success: true,
-      jobId: jobId || `lipsync_${Date.now()}`,
+      jobId: result.jobId,
       status: 'completed',
       result: {
         videoPath: result.videoPath,
