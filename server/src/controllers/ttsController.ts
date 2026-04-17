@@ -201,6 +201,38 @@ export const streamTTSOutput = async (req: Request, res: Response): Promise<void
   fs.createReadStream(audioPath).pipe(res)
 }
 
+// ── Return TTS output absolute path ───────────────────────────────────────
+export const getTTSOutputPath = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.auth!.userId
+  const jobId = String(req.params.jobId)
+
+  const supabase = getSupabaseClient()
+  const { data: row, error } = await supabase
+    .from('tts_jobs')
+    .select('output_audio_path')
+    .eq('id', jobId as any)
+    .eq('clerk_id', userId)
+    .single()
+
+  if (error || !row) {
+    res.status(404).json({ error: 'Job not found or access denied' })
+    return
+  }
+
+  const outputAudioPath = (row as any).output_audio_path
+  if (!outputAudioPath) {
+    res.status(404).json({ error: 'No output audio available for this job' })
+    return
+  }
+
+  if (!fs.existsSync(outputAudioPath)) {
+    res.status(404).json({ error: 'Output file not found on disk' })
+    return
+  }
+
+  res.json({ success: true, data: { outputAudioPath } })
+}
+
 // ── Get latest completed TTS job for a script ────────────────────────────────
 // Used on TTSStage mount to restore a previous generation without re-cloning.
 

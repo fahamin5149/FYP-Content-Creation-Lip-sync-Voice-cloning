@@ -200,6 +200,46 @@ export const streamMediaFile = async (req: Request, res: Response): Promise<void
   fs.createReadStream(absolutePath).pipe(res)
 }
 
+// ── Resolve an uploaded media item's absolute disk path ────────────────
+// Used by Next.js to pass real file paths into downstream AI microservices.
+export const resolveMediaPath = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.auth!.userId
+  const { mediaId, mediaType } = req.body as { mediaId?: string; mediaType?: 'audio' | 'video' }
+
+  if (!mediaId || !mediaType || !['audio', 'video'].includes(mediaType)) {
+    res.status(400).json({ error: 'mediaId and mediaType (audio|video) are required' })
+    return
+  }
+
+  const supabase = getSupabaseClient()
+  const { data: row, error } = await supabase
+    .from('user_media')
+    .select('file_path, mime_type')
+    .eq('id', mediaId)
+    .eq('clerk_id', userId)
+    .eq('media_type', mediaType)
+    .single()
+
+  if (error || !row) {
+    res.status(404).json({ error: 'Media not found or access denied' })
+    return
+  }
+
+  const absolutePath = path.join(process.cwd(), (row as any).file_path as string)
+  if (!fs.existsSync(absolutePath)) {
+    res.status(404).json({ error: 'Media file not found on disk' })
+    return
+  }
+
+  res.json({
+    success: true,
+    data: {
+      absolutePath,
+      mimeType: (row as any).mime_type || null,
+    },
+  })
+}
+
 // ── Delete Media ─────────────────────────────────────────────────────────────
 export const deleteMedia = async (req: Request, res: Response): Promise<void> => {
   const id = String(req.params.id)

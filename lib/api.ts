@@ -546,6 +546,135 @@ export const getTTSOutputBlobUrl = async (
   return URL.createObjectURL(blob)
 }
 
+/**
+ * Get the absolute output WAV disk path for a completed TTS job.
+ * Used by downstream services (e.g., lip-sync) that require filesystem paths.
+ */
+export const getTTSOutputPath = async (
+  jobId: string,
+  getToken: () => Promise<string | null>
+): Promise<string> => {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(`${API_URL}/api/tts/output-path/${jobId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || data?.detail || 'Failed to fetch TTS output path')
+  return data.data.outputAudioPath
+}
+
+/**
+ * Resolve an uploaded media item's absolute disk path.
+ * Useful when the frontend needs to pass real file paths to AI microservices.
+ */
+export const resolveMediaPath = async (
+  mediaId: string,
+  mediaType: 'audio' | 'video',
+  getToken: () => Promise<string | null>
+): Promise<{ absolutePath: string }> => {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(`${API_URL}/api/media/resolve-path`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ mediaId, mediaType }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || data?.detail || 'Failed to resolve media path')
+  return data.data
+}
+
+export interface LipSyncOutputItem {
+  jobId: string
+  size_bytes: number
+  created_at: string
+}
+
+/**
+ * List generated lip-sync MP4s for the current user (LIPSYNC_Output on disk).
+ */
+export const getLipSyncOutputs = async (
+  getToken: () => Promise<string | null>
+): Promise<LipSyncOutputItem[]> => {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(`${API_URL}/api/lipsync/outputs`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const text = await res.text()
+  let data: { error?: string; detail?: string; data?: LipSyncOutputItem[] } = {}
+  try {
+    data = text ? (JSON.parse(text) as typeof data) : {}
+  } catch {
+    /* non-JSON body */
+  }
+  if (!res.ok) {
+    const hint =
+      (typeof data.error === 'string' && data.error) ||
+      (typeof data.detail === 'string' && data.detail) ||
+      (text && text.length < 400 ? text : null)
+    throw new Error(
+      hint || `Lip-sync list failed (${res.status} ${res.statusText}). Is the API server on ${API_URL} restarted?`
+    )
+  }
+  return (data.data ?? []) as LipSyncOutputItem[]
+}
+
+/**
+ * Stream lip-sync output MP4 and return a local Blob URL.
+ */
+export const getLipSyncOutputBlobUrl = async (
+  jobId: string,
+  getToken: () => Promise<string | null>
+): Promise<string> => {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(`${API_URL}/api/lipsync/output/${jobId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Failed to fetch lip-sync output')
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}
+
+/**
+ * Run Wav2Lip via Next.js (calls FastAPI on WAV2LIP_URL). Same-origin only.
+ */
+export const runLipSyncProcess = async (params: {
+  videoPath: string
+  audioPath: string
+  userId: string
+  jobId: string
+  syncSettings?: Record<string, unknown>
+}): Promise<{ jobId: string }> => {
+  const res = await fetch('/api/process/lip-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      videoPath: params.videoPath,
+      audioPath: params.audioPath,
+      userId: params.userId,
+      jobId: params.jobId,
+      syncSettings: { quality: 'medium', ...params.syncSettings },
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const msg = [data.error, data.details].filter(Boolean).join(': ') || 'Lip sync failed'
+    throw new Error(msg)
+  }
+  return { jobId: data.jobId as string }
+}
+
 //-------------------------------------------------------
 //------------ Non-Auth API's  -------------------------
 //-------------------------------------------------------

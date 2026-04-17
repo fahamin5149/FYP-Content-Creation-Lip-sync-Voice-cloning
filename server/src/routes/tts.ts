@@ -6,6 +6,7 @@ import {
   createTTSJob,
   updateTTSJob,
   streamTTSOutput,
+  getTTSOutputPath,
   getLatestTTSJobByScript,
 } from '../controllers/ttsController.js'
 
@@ -22,5 +23,8 @@ router.get('/jobs/by-script/:scriptId', requireAuth, getLatestTTSJobByScript)
 
 // Stream the generated WAV to the browser (frontend creates Blob URL)
 router.get('/output/:jobId', requireAuth, streamTTSOutput)
+
+// Return the absolute output audio disk path for downstream services (e.g., Wav2Lip)
+router.get('/output-path/:jobId', requireAuth, getTTSOutputPath)
 
 export default router

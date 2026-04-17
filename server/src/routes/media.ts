@@ -9,6 +9,7 @@ import {
   uploadVideo,
   getAudio,
   getVideo,
+  resolveMediaPath,
   streamMediaFile,
   deleteMedia,
 } from '../controllers/mediaController.js'
@@ -44,6 +45,7 @@ router.post('/video', withMulter(videoUpload.single('file')), uploadVideo)
 router.get('/audio', getAudio)
 router.get('/video', getVideo)
 router.get('/file/:id', streamMediaFile) // authenticated streaming — no express.static
+router.post('/resolve-path', resolveMediaPath)
 router.delete('/:id', deleteMedia)
 
 export default router

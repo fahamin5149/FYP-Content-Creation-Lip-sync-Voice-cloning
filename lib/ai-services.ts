@@ -22,6 +22,9 @@ const CONFIG = {
   SUPPORTED_VIDEO_FORMATS: ['mp4', 'avi', 'mov', 'webm', 'mkv'],
 }
 
+// Wav2Lip microservice (FastAPI)
+const WAV2LIP_URL = process.env.WAV2LIP_URL || 'http://localhost:8002'
+
 export class TranscriptionService {
   async transcribeAudio(filePath: string, language: string = 'auto'): Promise<{
     text: string
@@ -340,9 +343,38 @@ export class VoiceCloningService {
     // Mock implementation - in production, use actual TTS service
     return new Promise((resolve) => {
       setTimeout(() => {
-        // Create a dummy audio file
-        const dummyAudio = Buffer.alloc(1000)
-        fs.writeFile(outputPath, dummyAudio)
+        // Create a valid WAV file (silence) so downstream services (Wav2Lip)
+        // can parse the audio without crashing.
+        const sampleRate = 16000
+        const durationSeconds = 2
+        const numChannels = 1
+        const numSamples = sampleRate * durationSeconds
+        const bytesPerSample = 2 // int16
+
+        const dataSize = numSamples * numChannels * bytesPerSample
+        const buffer = Buffer.alloc(44 + dataSize)
+
+        // RIFF header
+        buffer.write("RIFF", 0)
+        buffer.writeUInt32LE(36 + dataSize, 4)
+        buffer.write("WAVE", 8)
+
+        // fmt chunk
+        buffer.write("fmt ", 12)
+        buffer.writeUInt32LE(16, 16) // PCM fmt chunk size
+        buffer.writeUInt16LE(1, 20) // audio format = 1 (PCM)
+        buffer.writeUInt16LE(numChannels, 22)
+        buffer.writeUInt32LE(sampleRate, 24)
+        buffer.writeUInt32LE(sampleRate * numChannels * bytesPerSample, 28) // byte rate
+        buffer.writeUInt16LE(numChannels * bytesPerSample, 32) // block align
+        buffer.writeUInt16LE(16, 34) // bits per sample
+
+        // data chunk
+        buffer.write("data", 36)
+        buffer.writeUInt32LE(dataSize, 40)
+        // PCM payload is already zeroed => silence
+
+        fs.writeFile(outputPath, buffer)
         resolve()
       }, 2000)
     })
@@ -369,6 +401,7 @@ export class LipSyncService {
       faceDetection?: boolean
     } = {}
   ): Promise<{
+    jobId: string
     videoPath: string
     duration: number
     quality: number
@@ -376,26 +409,38 @@ export class LipSyncService {
     processingTime: number
   }> {
     try {
-      const outputPath = path.join(process.cwd(), 'generated', 'video', `${userId}_lipsync_${Date.now()}.mp4`)
-      
-      // Ensure output directory exists
+      const jobId = (syncSettings as any)?.jobId || `lipsync_${Date.now()}`
+      const outputPath = path.join(process.cwd(), 'LIPSYNC_Output', userId, `${jobId}.mp4`)
+
+      // Ensure output directory exists so the Python service can write the MP4.
       await fs.mkdir(path.dirname(outputPath), { recursive: true })
-      
-      // In production, integrate with actual lip sync services like:
-      // - Wav2Lip
-      // - SadTalker
-      // - First Order Motion Model
-      
-      await this.mockLipSync(videoPath, audioPath, outputPath, syncSettings)
-      
+
+      const res = await fetch(`${WAV2LIP_URL}/lipsync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoPath,
+          audioPath,
+          userId,
+          jobId,
+          outputPath,
+          syncSettings,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data?.detail || data?.error || `Wav2Lip service failed: ${res.status}`)
+      }
+
       return {
-        videoPath: outputPath,
-        duration: 10.5, // Estimated from audio duration
-        quality: syncSettings.quality === 'high' ? 0.95 : 
-                 syncSettings.quality === 'medium' ? 0.88 : 0.82,
+        jobId,
+        videoPath: data.videoPath || outputPath,
+        duration: 0,
+        quality: syncSettings.quality === 'high' ? 0.95 :
+          syncSettings.quality === 'medium' ? 0.88 : 0.82,
         syncAccuracy: 0.91,
-        processingTime: syncSettings.quality === 'high' ? 8000 : 
-                       syncSettings.quality === 'medium' ? 5000 : 3000
+        processingTime: data.processingTime || 0,
       }
     } catch (error) {
       console.error('Lip sync error:', error)

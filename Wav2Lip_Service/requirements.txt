@@ -1,0 +1,25 @@
+fastapi==0.103.2
+uvicorn[standard]==0.23.2
+python-multipart==0.0.19
+requests==2.32.3
+huggingface_hub==0.26.2
+click==8.1.7
+
+# Wav2Lip inference runtime dependencies
+# Torch is NOT listed here so you can choose CPU vs GPU after `pip install -r`.
+#
+# NVIDIA GPU (recommended; matches Urdu TTS cu118 stack on this project):
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# CPU-only (smaller download; much slower Wav2Lip):
+#   pip install torch torchvision torchaudio
+numpy
+scipy
+opencv-python
+librosa
+tqdm
+numba
+face-alignment
+
+# Some dependencies still require newer typing_extensions explicitly on 3.9.
+typing_extensions>=4.5.0

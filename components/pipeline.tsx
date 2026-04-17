@@ -1,5 +1,7 @@
+"use client"
+
 import { motion, useInView } from "framer-motion"
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { geist } from "@/lib/fonts"
 
@@ -7,6 +9,13 @@ const VisualPipeline = () => {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, amount: 0.3 })
   const [activeStep, setActiveStep] = useState(0)
+  const [mounted, setMounted] = useState(false)
+
+  // Hydration mismatch fix: `useInView` is viewport-dependent and can differ
+  // between SSR and the browser. Render nothing until the client mounts.
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const steps = [
     {
@@ -70,6 +79,8 @@ const VisualPipeline = () => {
       glowClass: "shadow-[0_0_20px_rgba(231,138,83,0.3)]"
     }
   ]
+
+  if (!mounted) return null
 
   const containerVariants = {
     animate: {
