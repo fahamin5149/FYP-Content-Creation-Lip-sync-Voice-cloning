@@ -8,22 +8,14 @@ import {
   Mic, 
   FileText, 
   Video, 
-  Settings, 
   ChevronLeft, 
   ChevronRight 
 } from "lucide-react"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
-
 const navItems = [
-  { icon: Home, label: "Dashboard", href: "/dashboard", enabled: true },
-  { icon: Mic, label: "Setup", href: "/dashboard/setup", enabled: true },
-  { icon: FileText, label: "Create Content", href: "/dashboard/create-content", enabled: true },
-  { icon: Video, label: "My Videos", href: "/dashboard/my-videos", enabled: true },
-  { icon: Settings, label: "Settings", href: "#", enabled: false },
+  { icon: Home, label: "Dashboard", href: "/dashboard" },
+  { icon: Mic, label: "Setup", href: "/dashboard/setup" },
+  { icon: FileText, label: "Create Content", href: "/dashboard/create-content" },
+  { icon: Video, label: "My Videos", href: "/dashboard/my-videos" },
 ]
 
 interface SidebarProps {
@@ -55,7 +47,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
-          return item.enabled ? (
+          return (
             <Link
               key={item.label}
               href={item.href}
@@ -67,20 +59,6 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               <Icon className={`${isOpen ? 'mr-3 h-5 w-5' : 'h-6 w-6 lg:mr-0'}`} />
               <span className={`${!isOpen && "lg:hidden"}`}>{item.label}</span>
             </Link>
-          ) : (
-            <Tooltip key={item.label}>
-              <TooltipTrigger asChild>
-                <div
-                  className={`flex items-center ${isOpen ? 'px-4' : 'px-3 lg:justify-center'} py-3 text-base rounded-lg cursor-not-allowed opacity-40 text-white/60`}
-                >
-                  <Icon className={`${isOpen ? 'mr-3 h-5 w-5' : 'h-6 w-6 lg:mr-0'}`} />
-                  <span className={`${!isOpen && "lg:hidden"}`}>{item.label}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="bg-black/90 border-white/20">
-                <p className="text-white">Coming Soon</p>
-              </TooltipContent>
-            </Tooltip>
           )
         })}
       </nav>

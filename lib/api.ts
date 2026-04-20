@@ -158,6 +158,8 @@ export interface ScriptGenerationParams {
   includeTransitions?: boolean
   includeQuestions?: boolean
   specialRequirements?: string
+  /** Server enforces exactly 1 sentence (prompt + post-trim). */
+  generateExactlyOneSentence?: boolean
 }
 
 export interface ScriptRefinementParams {
@@ -321,6 +323,20 @@ export const getUserDrafts = async (
         "Content-Type": "application/json",
       },
     },
+    getToken
+  )
+}
+
+/**
+ * Delete a saved draft by script id
+ */
+export const deleteDraft = async (
+  scriptId: string,
+  getToken: () => Promise<string | null>
+): Promise<{ success: boolean }> => {
+  return await fetchWithAuth(
+    `${API_URL}/api/content/draft/${encodeURIComponent(scriptId)}`,
+    { method: "DELETE" },
     getToken
   )
 }
@@ -629,6 +645,25 @@ export const getLipSyncOutputs = async (
 }
 
 /**
+ * Delete a generated lip-sync MP4 from server storage
+ */
+export const deleteLipSyncOutput = async (
+  jobId: string,
+  getToken: () => Promise<string | null>
+): Promise<{ success: boolean }> => {
+  const token = await getToken()
+  if (!token) throw new Error("Not authenticated")
+
+  const res = await fetch(`${API_URL}/api/lipsync/output/${encodeURIComponent(jobId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean }
+  if (!res.ok) throw new Error(data.error || "Failed to delete video")
+  return { success: Boolean(data.success) }
+}
+
+/**
  * Stream lip-sync output MP4 and return a local Blob URL.
  */
 export const getLipSyncOutputBlobUrl = async (
@@ -642,6 +677,32 @@ export const getLipSyncOutputBlobUrl = async (
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error('Failed to fetch lip-sync output')
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}
+
+export type LipSyncExportFormat = 'mp4' | 'mov' | 'webm'
+
+/**
+ * Export lip-sync output to selected format and return a downloadable Blob URL.
+ * mp4 streams original output; mov/webm are transcoded server-side.
+ */
+export const getLipSyncExportBlobUrl = async (
+  jobId: string,
+  format: LipSyncExportFormat,
+  getToken: () => Promise<string | null>
+): Promise<string> => {
+  const token = await getToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(`${API_URL}/api/lipsync/output/${jobId}/export?format=${format}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || data.detail || `Failed to export as ${format.toUpperCase()}`)
+  }
   const blob = await res.blob()
   return URL.createObjectURL(blob)
 }
@@ -673,6 +734,90 @@ export const runLipSyncProcess = async (params: {
     throw new Error(msg)
   }
   return { jobId: data.jobId as string }
+}
+
+export type YouTubePrivacy = "public" | "unlisted" | "private"
+
+export interface YouTubeUploadParams {
+  accessToken: string
+  videoBlob: Blob
+  title: string
+  description: string
+  privacyStatus: YouTubePrivacy
+  onProgress?: (percent: number) => void
+}
+
+export interface YouTubeUploadResult {
+  id: string
+  url: string
+}
+
+/**
+ * Upload a video directly to YouTube Data API v3 using OAuth2 access token.
+ */
+export const uploadVideoToYouTube = async ({
+  accessToken,
+  videoBlob,
+  title,
+  description,
+  privacyStatus,
+  onProgress,
+}: YouTubeUploadParams): Promise<YouTubeUploadResult> => {
+  const metadata = {
+    snippet: {
+      title,
+      description,
+    },
+    status: {
+      privacyStatus,
+    },
+  }
+
+  const initRes = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?part=snippet,status&uploadType=resumable", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+      "X-Upload-Content-Type": "video/mp4",
+    },
+    body: JSON.stringify(metadata),
+  })
+
+  if (!initRes.ok) {
+    const err = await initRes.text()
+    throw new Error(err || "Failed to initialize YouTube upload")
+  }
+
+  const uploadUrl = initRes.headers.get("Location")
+  if (!uploadUrl) throw new Error("YouTube resumable upload URL was not returned")
+
+  const result = await new Promise<YouTubeUploadResult>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open("PUT", uploadUrl)
+    xhr.setRequestHeader("Content-Type", "video/mp4")
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const payload = JSON.parse(xhr.responseText || "{}") as { id?: string; error?: { message?: string } }
+          if (!payload.id) throw new Error(payload.error?.message || "YouTube upload completed but ID missing")
+          resolve({ id: payload.id, url: `https://www.youtube.com/watch?v=${payload.id}` })
+        } catch (e) {
+          reject(e)
+        }
+        return
+      }
+      reject(new Error(xhr.responseText || "YouTube upload failed"))
+    }
+    xhr.onerror = () => reject(new Error("Network error during YouTube upload"))
+    xhr.send(videoBlob)
+  })
+
+  return result
 }
 
 //-------------------------------------------------------

@@ -30,8 +30,14 @@ const withMulter =
         res.status(413).json({ error: 'File exceeds the maximum allowed size' })
         return
       }
-      if (err?.message === 'INVALID_MIME_TYPE') {
-        res.status(415).json({ error: 'File type not supported' })
+      if (typeof err?.message === 'string' && err.message.startsWith('INVALID_MIME_TYPE')) {
+        const [, mediaType, formatHint] = err.message.split(':')
+        const noun = mediaType === 'video' ? 'video' : 'audio'
+        res.status(415).json({
+          error: formatHint
+            ? `Unsupported ${noun} format. Supported formats: ${formatHint}.`
+            : `Unsupported ${noun} format.`,
+        })
         return
       }
       next(err)

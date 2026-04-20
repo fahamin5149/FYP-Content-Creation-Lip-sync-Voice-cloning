@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useMemo, useState, useEffect } from "react"
 import { useAuth } from "@clerk/nextjs"
 import { useSearchParams } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
@@ -15,14 +15,25 @@ import ScriptPassthrough from "@/components/create-content/ScriptPassthrough"
 import ScriptReview from "@/components/create-content/ScriptReview"
 import TTSStage from "@/components/create-content/TTSStage"
 import VideoStage from "@/components/create-content/VideoStage"
-import { ContentState, Stage } from "@/components/create-content/types"
+import type {
+  ContentState,
+  ScriptGenerationFormDraft,
+  ScriptPassthroughFormDraft,
+  ScriptRefinementFormDraft,
+  Stage,
+} from "@/components/create-content/types"
+import {
+  getActiveStepIndex,
+  maxReachableStepIndex,
+  stepIndexToStage,
+} from "@/components/create-content/pipelineNavigation"
 import { getScriptById } from "@/lib/api"
 
 export default function CreateContentPage() {
   const { getToken } = useAuth()
   const searchParams = useSearchParams()
-  const draftId = searchParams.get('draftId')
-  
+  const draftId = searchParams.get("draftId")
+
   const [stage, setStage] = useState<Stage>("language")
   const [contentState, setContentState] = useState<ContentState>({
     language: "",
@@ -31,6 +42,7 @@ export default function CreateContentPage() {
     generatedScript: null,
     parameters: {},
     ttsJobId: null,
+    scriptFormDrafts: {},
   })
   const [loadingDraft, setLoadingDraft] = useState(!!draftId)
 
@@ -44,21 +56,18 @@ export default function CreateContentPage() {
     try {
       setLoadingDraft(true)
       const draft = await getScriptById(scriptId, getToken)
-      
-      // Restore the state from the draft
+
       updateState({
         language: draft.language,
         method: draft.method,
         scriptId: draft.script_id,
         generatedScript: draft.content,
-        parameters: draft.parameters || {}
+        parameters: draft.parameters || {},
       })
-      
-      // Navigate to review stage since draft is already a script
+
       setStage("review")
     } catch (error) {
-      console.error('Error loading draft:', error)
-      // If draft loading fails, start fresh
+      console.error("Error loading draft:", error)
       setStage("language")
     } finally {
       setLoadingDraft(false)
@@ -68,6 +77,39 @@ export default function CreateContentPage() {
   const updateState = (updates: Partial<ContentState>) => {
     setContentState((prev) => ({ ...prev, ...updates }))
   }
+
+  const persistGenerationDraft = useCallback((draft: ScriptGenerationFormDraft) => {
+    setContentState((prev) => ({
+      ...prev,
+      scriptFormDrafts: { ...prev.scriptFormDrafts, generation: draft },
+    }))
+  }, [])
+
+  const persistRefinementDraft = useCallback((draft: ScriptRefinementFormDraft) => {
+    setContentState((prev) => ({
+      ...prev,
+      scriptFormDrafts: { ...prev.scriptFormDrafts, refinement: draft },
+    }))
+  }, [])
+
+  const persistPassthroughDraft = useCallback((draft: ScriptPassthroughFormDraft) => {
+    setContentState((prev) => ({
+      ...prev,
+      scriptFormDrafts: { ...prev.scriptFormDrafts, passthrough: draft },
+    }))
+  }, [])
+
+  const maxReachable = useMemo(() => maxReachableStepIndex(contentState), [contentState])
+  const activeStepIndex = useMemo(() => getActiveStepIndex(stage), [stage])
+
+  const navigateToStep = useCallback(
+    (index: number) => {
+      if (index > maxReachable) return
+      const next = stepIndexToStage(index, contentState)
+      if (next) setStage(next)
+    },
+    [contentState, maxReachable]
+  )
 
   if (loadingDraft) {
     return (
@@ -87,6 +129,7 @@ export default function CreateContentPage() {
       case "language":
         return (
           <LanguageSelection
+            selectedLanguage={contentState.language || undefined}
             onSelect={(language) => {
               updateState({ language })
               setStage("method")
@@ -96,6 +139,7 @@ export default function CreateContentPage() {
       case "method":
         return (
           <ScriptMethodSelection
+            selectedMethod={contentState.method ?? undefined}
             onSelect={(method) => {
               updateState({ method })
               if (method === "passthrough") {
@@ -104,7 +148,6 @@ export default function CreateContentPage() {
                 setStage(method === "refinement" ? "refinement" : "generation")
               }
             }}
-            onBack={() => setStage("language")}
           />
         )
       case "refinement":
@@ -112,11 +155,12 @@ export default function CreateContentPage() {
           <ScriptRefinement
             language={contentState.language}
             getToken={getToken}
+            initialDraft={contentState.scriptFormDrafts?.refinement}
+            onDraftChange={persistRefinementDraft}
             onComplete={(scriptId, script, parameters) => {
               updateState({ scriptId, generatedScript: script, parameters })
               setStage("review")
             }}
-            onBack={() => setStage("method")}
           />
         )
       case "generation":
@@ -124,11 +168,12 @@ export default function CreateContentPage() {
           <ScriptGeneration
             language={contentState.language}
             getToken={getToken}
+            initialDraft={contentState.scriptFormDrafts?.generation}
+            onDraftChange={persistGenerationDraft}
             onComplete={(scriptId, script, parameters) => {
               updateState({ scriptId, generatedScript: script, parameters })
               setStage("review")
             }}
-            onBack={() => setStage("method")}
           />
         )
       case "passthrough":
@@ -136,11 +181,12 @@ export default function CreateContentPage() {
           <ScriptPassthrough
             language={contentState.language}
             getToken={getToken}
+            initialDraft={contentState.scriptFormDrafts?.passthrough}
+            onDraftChange={persistPassthroughDraft}
             onComplete={(scriptId, script, parameters) => {
               updateState({ scriptId, generatedScript: script, parameters })
               setStage("review")
             }}
-            onBack={() => setStage("method")}
           />
         )
       case "review":
@@ -173,21 +219,20 @@ export default function CreateContentPage() {
               updateState({ ttsJobId: jobId })
               setStage("video")
             }}
-            onBack={() => setStage("review")}
           />
         )
       case "video":
         return contentState.ttsJobId ? (
-          <VideoStage
-            ttsJobId={contentState.ttsJobId}
-            getToken={getToken}
-            onBack={() => setStage("tts")}
-          />
+          <VideoStage ttsJobId={contentState.ttsJobId} getToken={getToken} />
         ) : (
           <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-white/80">
             <p className="mb-4">Complete the TTS step first so we have audio for lip-sync.</p>
-            <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => setStage("tts")}>
-              Back to TTS
+            <Button
+              variant="outline"
+              className="border-white/20 text-white hover:bg-white/10"
+              onClick={() => setStage("tts")}
+            >
+              Go to TTS
             </Button>
           </div>
         )
@@ -197,19 +242,32 @@ export default function CreateContentPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6 text-white">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
             <p className="text-xs uppercase tracking-[0.25em] text-white/60">Content pipeline</p>
             <h1 className="text-3xl font-bold">Create content</h1>
-            <p className="text-white/70">A guided, multi-stage flow that mirrors the rest of the dashboard.</p>
+            <p className="text-white/70 mt-1">
+              Use the progress steps to move through the flow. Your script forms and choices are kept while you
+              navigate.
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {contentState.language && <Badge className="bg-primary/20 text-primary">{contentState.language}</Badge>}
-            {contentState.method && <Badge variant="outline" className="border-white/20 text-white/80">{contentState.method}</Badge>}
+          <div className="flex flex-wrap gap-2 shrink-0">
+            {contentState.language && (
+              <Badge className="bg-primary/20 text-primary">{contentState.language}</Badge>
+            )}
+            {contentState.method && (
+              <Badge variant="outline" className="border-white/20 text-white/80">
+                {contentState.method}
+              </Badge>
+            )}
           </div>
         </div>
 
-        <ProgressIndicator currentStage={stage} />
+        <ProgressIndicator
+          activeStepIndex={activeStepIndex}
+          maxReachableIndex={maxReachable}
+          onStepClick={navigateToStep}
+        />
 
         <div className="relative">{renderStage()}</div>
       </div>

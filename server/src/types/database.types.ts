@@ -21,7 +21,9 @@ export interface ScriptParameters {
   includeTransitions?: boolean
   includeQuestions?: boolean
   specialRequirements?: string
-  
+  /** When true, script must be exactly one sentence (generation flow). */
+  generateExactlyOneSentence?: boolean
+
   // Common parameters
   duration: number
   pacing: string

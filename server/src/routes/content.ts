@@ -8,6 +8,7 @@ import {
   getScriptById, 
   saveDraft,
   getUserDrafts,
+  deleteDraft,
   saveScriptDirect 
 } from '../controllers/contentController.js';
 
@@ -23,6 +24,7 @@ router.post('/refine-with-feedback', refineWithFeedback);
 router.get('/script/:scriptId', getScriptById);
 router.post('/save-draft', saveDraft);
 router.get('/drafts', getUserDrafts);
+router.delete('/draft/:scriptId', deleteDraft);
 router.post('/save-script-direct', saveScriptDirect);
 
 export default router;

@@ -16,6 +16,7 @@ interface ScriptGenerationParams {
   includeTransitions?: boolean;
   includeQuestions?: boolean;
   specialRequirements?: string;
+  generateExactlyOneSentence?: boolean;
 }
 
 /**
@@ -23,17 +24,68 @@ interface ScriptGenerationParams {
  * Routes to the appropriate language-specific prompt.
  */
 export const getScriptGenerationPrompt = (parameters: ScriptGenerationParams): string => {
-  const { language } = parameters;
+  const { language, generateExactlyOneSentence } = parameters;
 
   if (!language) {
     throw new Error('Language parameter is required for script generation');
   }
 
-  if (language === 'Urdu') {
+  const isUrdu = language.trim().toLowerCase() === 'urdu';
+
+  if (generateExactlyOneSentence) {
+    return isUrdu ? getUrduOneSentencePrompt(parameters) : getEnglishOneSentencePrompt(parameters);
+  }
+
+  if (isUrdu) {
     return getUrduScriptGenerationPrompt(parameters);
   }
 
   return getEnglishScriptGenerationPrompt(parameters);
+};
+
+// ── Exactly 1 sentence (checkbox) — short prompts; no duration/word-count conflict ──
+
+const getEnglishOneSentencePrompt = (parameters: ScriptGenerationParams): string => {
+  const { topic, scriptType, tone, targetAudience, keyPoints, specialRequirements } = parameters;
+  const extra = specialRequirements?.trim() ? `\nAdditional notes: ${specialRequirements.trim()}` : '';
+  return `You write spoken scripts for talking-head / lip-sync videos.
+
+**NON-NEGOTIABLE OUTPUT RULE — READ FIRST:**
+- Output **exactly 1 sentence** in English. Not 0. Not 2+. Not a paragraph.
+- The sentence must end with . or ! or ?
+- Do not use bullet lists. Do not add a title line. Do not number lines.
+- Output nothing before or after that sentence (no quotes, no "Here is the script:").
+
+**Style:** First-person, conversational, natural for speaking on camera — like a real creator talking to ${targetAudience || 'the viewer'}.
+**Topic:** ${topic}
+${scriptType ? `**Content type:** ${scriptType}` : ''}
+${tone ? `**Tone:** ${tone}` : ''}
+${keyPoints ? `**Touch on (in that one sentence):** ${keyPoints}` : ''}
+${extra}
+
+Write the 1 sentence now.`;
+};
+
+const getUrduOneSentencePrompt = (parameters: ScriptGenerationParams): string => {
+  const { topic, scriptType, tone, targetAudience, keyPoints, specialRequirements } = parameters;
+  const extra = specialRequirements?.trim() ? `\nاضافی نوٹس: ${specialRequirements.trim()}` : '';
+  return `آپ lip-sync / talking-head ویڈیوز کے لیے بولے جانے والے اسکرپٹ لکھتے ہیں۔
+
+**لازمی اصول — پہلے پڑھیں:**
+- صرف **بالکل 1 جملہ** اردو میں لکھیں، نہ زیادہ نہ کم۔
+- جملے کا اختتام ۔ یا ! یا ؟ پر ہو۔
+- کوئی title نہیں، کوئی نمبرنگ نہیں، کوئی bullet list نہیں۔
+- اسکرپٹ کے علاوہ کچھ نہ لکھیں (نہ "یہ رہا اسکرپٹ:" وغیرہ)۔
+
+**انداز:** پہلے شخص میں، قدرتی بول چال، camera پر بولنے کے قابل۔
+**موضوع:** ${topic}
+${scriptType ? `**قسم:** ${scriptType}` : ''}
+${tone ? `**انداز:** ${tone}` : ''}
+${targetAudience ? `**سامعین:** ${targetAudience}` : ''}
+${keyPoints ? `**ان نکات کو ایک جملے میں سمیٹیں:** ${keyPoints}` : ''}
+${extra}
+
+اب صرف وہ 1 جملہ لکھیں۔`;
 };
 
 // ─────────────────────────────────────────────────────────────

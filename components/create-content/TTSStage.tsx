@@ -38,7 +38,9 @@ import {
   Pause,
   SkipBack,
   SkipForward,
+  ArrowLeft,
 } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,10 +50,10 @@ interface TTSStageProps {
   scriptId: string
   getToken: () => Promise<string | null>
   onComplete: (jobId: string) => void
-  onBack: () => void
 }
 
 type Step = "checking" | "select" | "generating" | "result"
+type VoiceFlowStage = "use-own" | "refine" | "generate"
 
 // ── Rotating status messages — English (xtts_v2) ────────────────────────────
 
@@ -73,16 +75,8 @@ const URDU_STATUS_PHASES = [
   { at: 35000, message: "Finalizing output…" },
 ]
 
-// ── Urdu voice style presets ─────────────────────────────────────────────────
-
-const STYLE_PRESETS = [
-  { id: "neutral_male",   label: "Neutral Male",   desc: "Clear voice, moderate pace" },
-  { id: "neutral_female", label: "Neutral Female",  desc: "Clear voice, moderate pace" },
-  { id: "slow_clear",     label: "Slow & Clear",    desc: "Deliberate, careful enunciation" },
-  { id: "expressive",     label: "Expressive",      desc: "Dynamic, natural emotion" },
-] as const
-
-type StylePresetId = typeof STYLE_PRESETS[number]["id"]
+/** Urdu TTS style — fixed server-side default (no user picker). */
+const URDU_STYLE_PRESET = "neutral_male" as const
 
 // ── Waveform visualizer — deterministic bar geometry ────────────────────────
 const BAR_COUNT = 60
@@ -179,7 +173,6 @@ export default function TTSStage({
   scriptId,
   getToken,
   onComplete,
-  onBack,
 }: TTSStageProps) {
   // ─ Language helpers ──────────────────────────────────────────────────────
   const isUrdu = language.toLowerCase() === "urdu"
@@ -191,12 +184,11 @@ export default function TTSStage({
   const [loadingItems, setLoadingItems] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
-
-  // Urdu voice style preset (only used when isUrdu)
-  const [stylePreset, setStylePreset] = useState<StylePresetId>("neutral_male")
+  const [flowStage, setFlowStage] = useState<VoiceFlowStage>("use-own")
 
   // Generating step
   const [statusMsg, setStatusMsg] = useState(activePhases[0].message)
+  const [generationProgress, setGenerationProgress] = useState(0)
   const timersRef = useRef<NodeJS.Timeout[]>([])
 
   // Result step
@@ -206,6 +198,10 @@ export default function TTSStage({
   const [loadingResult, setLoadingResult] = useState(false)
   const [isRestored, setIsRestored] = useState(false)
   const [generatedAt, setGeneratedAt] = useState<string | null>(null)
+  const [partialGenerationWarning, setPartialGenerationWarning] = useState<string | null>(null)
+  const [refineTone, setRefineTone] = useState(50)
+  const [refineClarity, setRefineClarity] = useState(50)
+  const [refinePace, setRefinePace] = useState(50)
 
   // Visualizer / custom player
   const audioRef    = useRef<HTMLAudioElement>(null)
@@ -335,10 +331,23 @@ export default function TTSStage({
     () => audioItems.length > 0 && selectedIds.size === audioItems.length,
     [audioItems, selectedIds]
   )
+  const validatedAudio = useMemo(() => {
+    return audioItems.map((item) => {
+      const reasons: string[] = []
+      if (!item.size_bytes || item.size_bytes <= 0) reasons.push("0-byte file")
+      if (!item.mime_type || !item.mime_type.startsWith("audio/")) reasons.push("invalid audio type")
+      return { item, valid: reasons.length === 0, reason: reasons.join(", ") }
+    })
+  }, [audioItems])
+  const validAudioCount = validatedAudio.filter((v) => v.valid).length
+  const invalidAudio = validatedAudio.filter((v) => !v.valid)
+  const selectedValidCount = validatedAudio.filter((v) => v.valid && selectedIds.has(v.item.id)).length
 
   // ─ Generate ───────────────────────────────────────────────────────────
   const handleGenerate = async () => {
     setError(null)
+    setGenerationProgress(5)
+    setPartialGenerationWarning(null)
     setStep("generating")
 
     // Start rotating status messages (language-aware phases)
@@ -351,6 +360,7 @@ export default function TTSStage({
         timersRef.current.push(t)
       }
     })
+    const progressTimer = setInterval(() => setGenerationProgress((p) => Math.min(93, p + 4)), 2500)
 
     try {
       // Branch on language: Urdu uses two-stage Parler-TTS + OpenVoice V2 pipeline;
@@ -361,7 +371,7 @@ export default function TTSStage({
               scriptId,
               text: script,
               mediaIds: Array.from(selectedIds),
-              stylePreset,
+              stylePreset: URDU_STYLE_PRESET,
             },
             getToken
           )
@@ -381,14 +391,17 @@ export default function TTSStage({
 
       // Fetch the generated audio as a blob
       setLoadingResult(true)
-      const blobUrl = await getTTSOutputBlobUrl(res.jobId, getToken)
-      setResultBlobUrl(blobUrl)
+      const blobUrl = await getTTSOutputBlobUrl(res.jobId, getToken).catch(() => null)
+      if (blobUrl) setResultBlobUrl(blobUrl)
+      else setPartialGenerationWarning("Generation succeeded but audio preview failed to load. Retry is available.")
       setLoadingResult(false)
+      setGenerationProgress(100)
       setStep("result")
     } catch (err: any) {
       setError(err.message || "Voice synthesis failed. Please try again.")
       setStep("select")
     } finally {
+      clearInterval(progressTimer)
       timersRef.current.forEach(clearTimeout)
       timersRef.current = []
     }
@@ -478,6 +491,9 @@ export default function TTSStage({
         </CardHeader>
 
         <CardContent className="space-y-4">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/70">
+            Voice cloning flow: <span className="text-white">Use My Own</span> → <span className="text-white">Refine</span> → <span className="text-white">Generate</span>
+          </div>
           {/* Error */}
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
@@ -505,6 +521,15 @@ export default function TTSStage({
             </div>
           ) : (
             <>
+              {invalidAudio.length > 0 && (
+                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100">
+                  {invalidAudio.length === audioItems.length
+                    ? `All files failed validation: ${invalidAudio.map((f) => `${f.item.filename} (${f.reason})`).join(", ")}`
+                    : `${invalidAudio.length} file(s) failed validation and will be skipped. Valid files can still proceed.`}
+                </div>
+              )}
+              {flowStage === "use-own" && (
+                <>
               {/* Toolbar */}
               <div className="flex items-center justify-between">
                 <p className="text-sm text-white/60">
@@ -532,38 +557,32 @@ export default function TTSStage({
                   />
                 ))}
               </div>
+                </>
+              )}
+              {flowStage === "refine" && (
+                <div className="space-y-3 rounded-xl border border-white/10 bg-black/30 p-4">
+                  <p className="text-sm text-white/80">Adjust refinement settings and preview before generation.</p>
+                  <label className="text-xs text-white/60">Tone: {refineTone}</label>
+                  <input type="range" min={0} max={100} value={refineTone} onChange={(e) => setRefineTone(Number(e.target.value))} className="w-full" />
+                  <label className="text-xs text-white/60">Clarity: {refineClarity}</label>
+                  <input type="range" min={0} max={100} value={refineClarity} onChange={(e) => setRefineClarity(Number(e.target.value))} className="w-full" />
+                  <label className="text-xs text-white/60">Pace: {refinePace}</label>
+                  <input type="range" min={0} max={100} value={refinePace} onChange={(e) => setRefinePace(Number(e.target.value))} className="w-full" />
+                  <p className="text-xs text-white/40">
+                    Settings are preserved if you navigate back.
+                  </p>
+                </div>
+              )}
+              {flowStage === "generate" && (
+                <div className="space-y-2 rounded-xl border border-white/10 bg-black/30 p-4">
+                  <p className="text-sm text-white/80">Ready to generate voice.</p>
+                  <p className="text-xs text-white/60">
+                    Selected valid files: {selectedValidCount}. Invalid files are blocked automatically.
+                  </p>
+                  <p className="text-xs text-white/50">No re-upload is needed for retries if generation fails.</p>
+                </div>
+              )}
             </>
-          )}
-
-          {/* Voice style preset selector — Urdu only */}
-          {isUrdu && (
-            <div>
-              <p className="text-xs uppercase tracking-wide text-white/40 mb-2">
-                Voice style
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {STYLE_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => setStylePreset(preset.id)}
-                    className={`
-                      rounded-xl border p-3 text-left transition-all duration-150
-                      ${
-                        stylePreset === preset.id
-                          ? "border-primary bg-primary/10 shadow-sm shadow-primary/20"
-                          : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.07]"
-                      }
-                    `}
-                  >
-                    <p className={`text-sm font-medium ${stylePreset === preset.id ? "text-white" : "text-white/70"}`}>
-                      {preset.label}
-                    </p>
-                    <p className="text-xs text-white/40 mt-0.5">{preset.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
           )}
 
           {/* Script preview */}
@@ -577,21 +596,38 @@ export default function TTSStage({
           </div>
         </CardContent>
 
-        <CardFooter className="flex justify-between gap-3 px-6">
-          <Button
-            variant="secondary"
-            className="bg-slate-500/20 text-slate-300 border border-slate-500/30 hover:bg-slate-500/30 hover:text-slate-200"
-            onClick={onBack}
-          >
-            Back
-          </Button>
-          <Button
-            className="bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/30"
-            disabled={selectedIds.size === 0}
-            onClick={handleGenerate}
-          >
-            Generate Voice
-          </Button>
+        <CardFooter className="flex justify-end gap-3 px-6">
+          <div className="flex gap-2">
+            {flowStage !== "use-own" && (
+              <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => setFlowStage(flowStage === "generate" ? "refine" : "use-own")}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            )}
+            {flowStage === "use-own" && (
+              <Button
+                className="bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/30"
+                disabled={audioItems.length === 0 || validAudioCount === 0 || selectedValidCount === 0}
+                onClick={() => setFlowStage("refine")}
+              >
+                Next
+              </Button>
+            )}
+            {flowStage === "refine" && (
+              <Button className="bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/30" onClick={() => setFlowStage("generate")}>
+                Next
+              </Button>
+            )}
+            {flowStage === "generate" && (
+              <Button
+                className="bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/30"
+                disabled={selectedValidCount === 0}
+                onClick={handleGenerate}
+              >
+                Generate Voice
+              </Button>
+            )}
+          </div>
         </CardFooter>
       </Card>
     )
@@ -612,6 +648,10 @@ export default function TTSStage({
           <div className="text-center space-y-2 max-w-md">
             <h3 className="text-xl font-semibold text-white">Cloning voice…</h3>
             <p className="text-white/60 text-sm animate-pulse">{statusMsg}</p>
+            <div className="pt-2">
+              <Progress value={generationProgress} />
+              <p className="mt-1 text-xs text-white/40">{generationProgress}%</p>
+            </div>
             <p className="text-white/40 text-xs mt-4">
               {isUrdu
                 ? "Typically 15–40 seconds on GPU — Parler-TTS then OpenVoice V2"
@@ -665,6 +705,11 @@ export default function TTSStage({
       </CardHeader>
 
       <CardContent className="space-y-5 pt-2">
+        {partialGenerationWarning && (
+          <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100">
+            {partialGenerationWarning}
+          </div>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════════
             iPhone-style Audio Visualizer Player

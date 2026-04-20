@@ -33,10 +33,13 @@ function MediaCard({
   const [showConfirm, setShowConfirm] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
-  const formattedDate = new Date(item.created_at).toLocaleDateString("en-US", {
+  const uploadedAt = new Date(item.created_at).toLocaleString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   })
 
   const fileSizeLabel = item.size_bytes
@@ -75,7 +78,8 @@ function MediaCard({
             <div className="min-w-0">
               <p className="text-sm font-medium text-white truncate">{item.filename}</p>
               <p className="text-xs text-white/40 mt-0.5">
-                {formattedDate}{fileSizeLabel ? ` · ${fileSizeLabel}` : ""}
+                Uploaded {uploadedAt}
+                {fileSizeLabel ? ` · ${fileSizeLabel}` : ""}
                 {item.language ? ` · ${item.language.charAt(0).toUpperCase() + item.language.slice(1)}` : ""}
               </p>
             </div>

@@ -1,4 +1,10 @@
-@import "tailwindcss";
+/* Tailwind: scan only Next sources so PostCSS stays fast (repo includes large ML/python trees). */
+@import "tailwindcss" source(none);
+@source ".";
+@source "../components";
+@source "../hooks";
+@source "../lib";
+
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));

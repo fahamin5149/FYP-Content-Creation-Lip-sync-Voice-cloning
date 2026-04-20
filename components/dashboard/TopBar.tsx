@@ -3,16 +3,7 @@
 
 import { UserButton, useUser } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
-import {
-  Bell,
-  Globe,
-  Menu,
-} from "lucide-react"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { Menu } from "lucide-react"
 
 interface TopBarProps {
   sidebarOpen: boolean
@@ -43,31 +34,7 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
           </span>
         )}
 
-        <div className="ml-auto flex items-center space-x-4">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="p-2 rounded-lg hover:bg-white/10 transition-colors opacity-40 cursor-not-allowed text-white">
-                <Globe className="h-5 w-5" />
-                <span className="sr-only">Language</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="bg-black/90 border-white/20">
-              <p className="text-white">Coming Soon</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="p-2 rounded-lg hover:bg-white/10 transition-colors opacity-40 cursor-not-allowed text-white">
-                <Bell className="h-5 w-5" />
-                <span className="sr-only">Notifications</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="bg-black/90 border-white/20">
-              <p className="text-white">Coming Soon</p>
-            </TooltipContent>
-          </Tooltip>
-
+        <div className="ml-auto flex items-center gap-4">
           <div className="flex items-center gap-2">
             {mounted && (
               <span className="hidden md:inline-block font-medium text-white">

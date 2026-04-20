@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { refineScript, ScriptRefinementParams, ScriptResponse } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,12 +16,17 @@ import {
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { AlertCircle, Loader2 } from "lucide-react"
+import {
+  DEFAULT_SCRIPT_REFINEMENT_FORM_DRAFT,
+  type ScriptRefinementFormDraft,
+} from "@/components/create-content/types"
 
 interface ScriptRefinementProps {
   language: string
   getToken: () => Promise<string | null>
+  initialDraft?: Partial<ScriptRefinementFormDraft> | null
+  onDraftChange?: (draft: ScriptRefinementFormDraft) => void
   onComplete: (scriptId: string, script: string, params: any) => void
-  onBack: () => void
 }
 
 const durationOptions = [
@@ -35,19 +40,27 @@ const durationOptions = [
 
 const pacingOptions = ["Slow", "Medium", "Fast"]
 
-export default function ScriptRefinement({ language, getToken, onComplete, onBack }: ScriptRefinementProps) {
-  const [title, setTitle] = useState("")
-  const [originalScript, setOriginalScript] = useState("")
-  const [refinementType, setRefinementType] = useState<"simple" | "custom">("simple")
-  const [customInstructions, setCustomInstructions] = useState("")
-  const [duration, setDuration] = useState<number>(60)
-  const [pacing, setPacing] = useState<string>("Medium")
+export default function ScriptRefinement({
+  language,
+  getToken,
+  initialDraft,
+  onDraftChange,
+  onComplete,
+}: ScriptRefinementProps) {
+  const [form, setForm] = useState<ScriptRefinementFormDraft>(() => ({
+    ...DEFAULT_SCRIPT_REFINEMENT_FORM_DRAFT,
+    ...initialDraft,
+  }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    onDraftChange?.(form)
+  }, [form, onDraftChange])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !originalScript.trim()) {
+    if (!form.title.trim() || !form.originalScript.trim()) {
       setError("Title and script are required.")
       return
     }
@@ -55,13 +68,13 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
     setLoading(true)
     try {
       const params: ScriptRefinementParams = {
-        title,
-        originalScript,
-        refinementType,
-        customInstructions: refinementType === "custom" ? customInstructions : undefined,
+        title: form.title,
+        originalScript: form.originalScript,
+        refinementType: form.refinementType,
+        customInstructions: form.refinementType === "custom" ? form.customInstructions : undefined,
         language,
-        duration,
-        pacing,
+        duration: form.duration,
+        pacing: form.pacing,
       }
       const response: ScriptResponse = await refineScript(params, getToken)
       onComplete(response.scriptId, response.content, params)
@@ -74,24 +87,19 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
 
   return (
     <Card className="border-white/10 bg-white/5 text-white">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-2xl">Refine your script</CardTitle>
-          <CardDescription className="text-white/70">
-            Drop in your draft and choose how you want it polished.
-          </CardDescription>
-        </div>
-        <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10" onClick={onBack}>
-          Back
-        </Button>
+      <CardHeader>
+        <CardTitle className="text-2xl">Refine your script</CardTitle>
+        <CardDescription className="text-white/70">
+          Drop in your draft and choose how you want it polished.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label className="text-white">Content Title *</Label>
           <Input
             placeholder="e.g., Refined Marketing Script"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={form.title}
+            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             className="bg-black/40 text-white border-white/10"
           />
           <p className="text-xs text-white/50">This title helps you identify your content in the dashboard</p>
@@ -101,8 +109,8 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
           <Label className="text-white">Original script</Label>
           <Textarea
             placeholder="Paste your script here..."
-            value={originalScript}
-            onChange={(e) => setOriginalScript(e.target.value)}
+            value={form.originalScript}
+            onChange={(e) => setForm((f) => ({ ...f, originalScript: e.target.value }))}
             className="min-h-[180px] bg-black/40 text-white border-white/10"
           />
         </div>
@@ -110,8 +118,8 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
         <div className="space-y-2">
           <Label className="text-white">Refinement type</Label>
           <RadioGroup
-            value={refinementType}
-            onValueChange={(value: "simple" | "custom") => setRefinementType(value)}
+            value={form.refinementType}
+            onValueChange={(value: "simple" | "custom") => setForm((f) => ({ ...f, refinementType: value }))}
             className="grid gap-3 sm:grid-cols-2"
           >
             <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
@@ -131,13 +139,13 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
           </RadioGroup>
         </div>
 
-        {refinementType === "custom" && (
+        {form.refinementType === "custom" && (
           <div className="space-y-2">
             <Label className="text-white">Custom instructions</Label>
             <Textarea
               placeholder="Tell the model exactly what to change..."
-              value={customInstructions}
-              onChange={(e) => setCustomInstructions(e.target.value)}
+              value={form.customInstructions}
+              onChange={(e) => setForm((f) => ({ ...f, customInstructions: e.target.value }))}
               className="min-h-[120px] bg-black/40 text-white border-white/10"
             />
           </div>
@@ -146,7 +154,10 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label className="text-white">Duration</Label>
-            <Select value={String(duration)} onValueChange={(val) => setDuration(Number(val))}>
+            <Select
+              value={String(form.duration)}
+              onValueChange={(val) => setForm((f) => ({ ...f, duration: Number(val) }))}
+            >
               <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
                 <SelectValue placeholder="Choose duration" />
               </SelectTrigger>
@@ -161,7 +172,7 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
           </div>
           <div className="space-y-2">
             <Label className="text-white">Pacing</Label>
-            <Select value={pacing} onValueChange={(val) => setPacing(val)}>
+            <Select value={form.pacing} onValueChange={(val) => setForm((f) => ({ ...f, pacing: val }))}>
               <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
                 <SelectValue placeholder="Select pacing" />
               </SelectTrigger>
@@ -183,17 +194,16 @@ export default function ScriptRefinement({ language, getToken, onComplete, onBac
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between px-6">
-        <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10" onClick={onBack} disabled={loading}>
-          Back
-        </Button>
+      <CardFooter className="flex justify-end px-6">
         <Button
           onClick={handleSubmit}
           disabled={loading}
           className="bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/30"
         >
           {loading ? (
-            <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Refining...</span>
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Refining...
+            </span>
           ) : (
             "Refine script"
           )}

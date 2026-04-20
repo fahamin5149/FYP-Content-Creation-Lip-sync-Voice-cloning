@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile } from 'fs/promises'
+import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
+import { ensureAudioFileIsWav } from '@/lib/transcodeAudioToWav'
+import { SUPPORTED_AUDIO_FORMATS_LABEL, isSupportedAudioFile } from '@/lib/audioFormats'
+import { getAudioUploadRejectionReason } from '@/lib/mediaUploadGuards'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,11 +15,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No audio file provided' }, { status: 400 })
     }
 
-    // Validate file type
-    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/m4a', 'audio/ogg', 'audio/webm']
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ 
-        error: 'Invalid file type. Please upload MP3, WAV, MP4, M4A, OGG, or WebM files.' 
+    const wrongKind = getAudioUploadRejectionReason({ name: file.name, type: file.type })
+    if (wrongKind) {
+      return NextResponse.json({ error: wrongKind }, { status: 400 })
+    }
+
+    // Validate file type using MIME and extension fallback (some browsers send empty/odd MIME)
+    if (!isSupportedAudioFile({ name: file.name, type: file.type })) {
+      return NextResponse.json({
+        error: `Unsupported audio format. Supported formats: ${SUPPORTED_AUDIO_FORMATS_LABEL}.`,
       }, { status: 400 })
     }
 
@@ -44,14 +51,38 @@ export async function POST(request: NextRequest) {
 
     await writeFile(filepath, buffer)
 
-    // Return file info
+    let outPath = filepath
+    let outFilename = filename
+    let outSize = buffer.length
+    let outType = file.type
+
+    try {
+      const wav = await ensureAudioFileIsWav(filepath, filename, file.type, file.name)
+      outPath = wav.path
+      outFilename = wav.filename
+      outSize = wav.sizeBytes
+      outType = wav.mimeType
+    } catch (convErr: unknown) {
+      console.error('Audio to WAV conversion failed:', convErr)
+      await unlink(outPath).catch(() => {})
+      return NextResponse.json(
+        {
+          error:
+            convErr instanceof Error
+              ? convErr.message
+              : 'Failed to convert audio to WAV. Install ffmpeg and use a supported format.',
+        },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
-      filename,
-      filepath,
-      size: file.size,
-      type: file.type,
-      message: 'Audio file uploaded successfully'
+      filename: outFilename,
+      filepath: outPath,
+      size: outSize,
+      type: outType,
+      message: 'Audio file uploaded successfully',
     })
 
   } catch (error) {
