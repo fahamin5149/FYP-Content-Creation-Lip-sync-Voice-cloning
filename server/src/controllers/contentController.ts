@@ -7,6 +7,7 @@ import { getSimpleRefinementPrompt, getCustomRefinementPrompt } from '../prompts
 import { getScriptGenerationPrompt } from '../prompts/scriptGeneration.js';
 import { getFeedbackRefinementPrompt } from '../prompts/feedbackRefinement.js';
 import type { Script, ScriptParameters, ScriptMetadata } from '../types/database.types.js';
+import { takeFirstNSentences } from '../utils/sentences.js';
 
 /**
  * Helper function to calculate word count and duration
@@ -34,7 +35,9 @@ export const generateScript = async (req: Request, res: Response): Promise<void>
     const { 
       title, language, topic, scriptType, tone, targetAudience, keyPoints,
       duration, pacing, introStyle, includeHook, includeCTA,
-      includeTransitions, includeQuestions, specialRequirements 
+      includeTransitions, includeQuestions, specialRequirements,
+      generateExactlyOneSentence,
+      generateExactlyThreeSentences,
     } = req.body;
 
     // Validation
@@ -43,10 +46,14 @@ export const generateScript = async (req: Request, res: Response): Promise<void>
       return;
     }
     
+    const shortOneSentence = Boolean(
+      generateExactlyOneSentence ?? generateExactlyThreeSentences,
+    );
     const parameters: ScriptParameters = {
       title, language, topic, scriptType, tone, targetAudience, keyPoints,
       duration, pacing, introStyle, includeHook, includeCTA,
-      includeTransitions, includeQuestions, specialRequirements
+      includeTransitions, includeQuestions, specialRequirements,
+      generateExactlyOneSentence: shortOneSentence,
     };
     
     const systemPrompt = getScriptGenerationPrompt(parameters as any);
@@ -57,8 +64,13 @@ export const generateScript = async (req: Request, res: Response): Promise<void>
     
     // Call OpenRouter LLM
     console.log('Generating script for user:', userId);
-    const generatedScript = await callOpenRouter(messages, 4000);
-    
+    const oneSentenceOnly = Boolean(parameters.generateExactlyOneSentence);
+    let generatedScript = await callOpenRouter(messages, oneSentenceOnly ? 400 : 4000, oneSentenceOnly ? 0.45 : 0.7);
+
+    if (oneSentenceOnly) {
+      generatedScript = takeFirstNSentences(generatedScript, 1);
+    }
+
     // Calculate metadata
     const { wordCount, estimatedDuration } = calculateMetadata(generatedScript, pacing);
     const metadata: ScriptMetadata = { 
@@ -408,6 +420,64 @@ export const getUserDrafts = async (req: Request, res: Response): Promise<void> 
   } catch (error: any) {
     console.error('Get drafts error:', error);
     res.status(500).json({ error: 'Failed to retrieve drafts' });
+  }
+};
+
+/**
+ * DELETE /api/content/draft/:scriptId
+ * Permanently removes a draft owned by the current user.
+ */
+export const deleteDraft = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.auth?.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const scriptId = String(req.params.scriptId || '').trim();
+    if (!scriptId || scriptId.length > 200) {
+      res.status(400).json({ error: 'Invalid script id' });
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+
+    const { data: row, error: fetchErr } = await supabase
+      .from('scripts')
+      .select('script_id')
+      .eq('user_id', userId)
+      .eq('script_id', scriptId)
+      .eq('status', 'draft')
+      .maybeSingle();
+
+    if (fetchErr) {
+      console.error('Delete draft lookup:', fetchErr);
+      res.status(500).json({ error: 'Failed to verify draft' });
+      return;
+    }
+    if (!row) {
+      res.status(404).json({ error: 'Draft not found' });
+      return;
+    }
+
+    const { error: delErr } = await supabase
+      .from('scripts')
+      .delete()
+      .eq('user_id', userId)
+      .eq('script_id', scriptId)
+      .eq('status', 'draft');
+
+    if (delErr) {
+      console.error('Delete draft:', delErr);
+      res.status(500).json({ error: 'Failed to delete draft' });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Delete draft error:', error);
+    res.status(500).json({ error: 'Failed to delete draft' });
   }
 };
 

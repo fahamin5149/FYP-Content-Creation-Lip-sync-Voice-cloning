@@ -3,64 +3,10 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@clerk/nextjs"
-import { Clapperboard, FileVideo, Loader2, RefreshCw, Sparkles, AlertCircle } from "lucide-react"
+import { Clapperboard, Loader2, RefreshCw, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { MediaList } from "@/components/setup/MediaList"
-import { getUserVideo, getLipSyncOutputs, type MediaItem, type LipSyncOutputItem } from "@/lib/api"
-import { useLipSyncOutputBlob } from "@/hooks/useLipSyncOutputBlob"
-
-function GeneratedVideoCard({
-  item,
-  getToken,
-}: {
-  item: LipSyncOutputItem
-  getToken: () => Promise<string | null>
-}) {
-  const { blobUrl, loading, error } = useLipSyncOutputBlob(item.jobId, getToken)
-
-  const formattedDate = new Date(item.created_at).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-  const sizeLabel =
-    item.size_bytes > 1024 * 1024
-      ? `${(item.size_bytes / 1024 / 1024).toFixed(1)} MB`
-      : `${(item.size_bytes / 1024).toFixed(0)} KB`
-
-  return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
-      <div className="flex items-start gap-3 min-w-0">
-        <div className="p-2 rounded-lg bg-primary/15 border border-primary/25 shrink-0">
-          <Clapperboard className="h-4 w-4 text-primary" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-white font-mono truncate">{item.jobId}</p>
-          <p className="text-xs text-white/40 mt-0.5">
-            {formattedDate} · {sizeLabel}
-          </p>
-        </div>
-      </div>
-      {loading && (
-        <div className="flex items-center gap-2 text-white/40 text-xs py-2">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Loading preview…
-        </div>
-      )}
-      {error && (
-        <div className="flex items-center gap-2 text-red-400/70 text-xs">
-          <AlertCircle className="h-3 w-3 shrink-0" />
-          {error}
-        </div>
-      )}
-      {blobUrl && (
-        <video controls src={blobUrl} className="w-full rounded-lg max-h-56 bg-black" playsInline />
-      )}
-    </div>
-  )
-}
+import { getLipSyncOutputs, type LipSyncOutputItem } from "@/lib/api"
+import { GeneratedVideoCard } from "@/components/dashboard/GeneratedVideoCard"
 
 export function MyVideosContent() {
   const { getToken } = useAuth()
@@ -68,9 +14,6 @@ export function MyVideosContent() {
   const [generated, setGenerated] = useState<LipSyncOutputItem[]>([])
   const [loadingGenerated, setLoadingGenerated] = useState(true)
   const [generatedError, setGeneratedError] = useState<string | null>(null)
-
-  const [uploads, setUploads] = useState<MediaItem[]>([])
-  const [loadingUploads, setLoadingUploads] = useState(true)
 
   const loadGenerated = useCallback(async () => {
     setLoadingGenerated(true)
@@ -86,29 +29,9 @@ export function MyVideosContent() {
     }
   }, [getToken])
 
-  const loadUploads = useCallback(async () => {
-    setLoadingUploads(true)
-    try {
-      const res = await getUserVideo(getToken)
-      setUploads(res.data ?? [])
-    } catch {
-      setUploads([])
-    } finally {
-      setLoadingUploads(false)
-    }
-  }, [getToken])
-
   useEffect(() => {
     void loadGenerated()
   }, [loadGenerated])
-
-  useEffect(() => {
-    void loadUploads()
-  }, [loadUploads])
-
-  const handleDeleteUpload = async (id: string) => {
-    setUploads((prev) => prev.filter((x) => x.id !== id))
-  }
 
   return (
     <div className="space-y-10 text-white max-w-4xl mx-auto">
@@ -116,7 +39,7 @@ export function MyVideosContent() {
         <p className="text-xs uppercase tracking-[0.25em] text-white/60">Library</p>
         <h1 className="text-3xl font-bold mt-1">My videos</h1>
         <p className="text-white/65 mt-2">
-          Lip-sync exports from Create content, and source clips you uploaded in Setup.
+          Lip-sync exports from Create content.
         </p>
       </div>
 
@@ -177,43 +100,13 @@ export function MyVideosContent() {
         {!loadingGenerated &&
           generated.length > 0 &&
           generated.map((item) => (
-            <GeneratedVideoCard key={item.jobId} item={item} getToken={getToken} />
+            <GeneratedVideoCard
+              key={item.jobId}
+              item={item}
+              getToken={getToken}
+              onDeleted={() => void loadGenerated()}
+            />
           ))}
-      </section>
-
-      <section className="space-y-4 border-t border-white/10 pt-10">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <FileVideo className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">Uploaded (face / source clips)</h2>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="border-white/20 text-white hover:bg-white/10"
-            onClick={() => void loadUploads()}
-            disabled={loadingUploads}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loadingUploads ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
-        <p className="text-sm text-white/55">
-          These are the files stored from{" "}
-          <Link href="/dashboard/setup" className="text-primary hover:underline">
-            Setup → Video
-          </Link>
-          . Use them as the face video in the Create content lip-sync step.
-        </p>
-
-        <MediaList
-          items={uploads}
-          type="video"
-          onDelete={handleDeleteUpload}
-          isLoading={loadingUploads}
-          getToken={getToken}
-        />
       </section>
     </div>
   )

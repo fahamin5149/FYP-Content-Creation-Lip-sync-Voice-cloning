@@ -55,7 +55,12 @@ export function VoiceTab({ getToken }: VoiceTabProps) {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       {/* ── English ─────────────────────────────────────────────────────── */}
       <div className="space-y-4">
-        <VoiceSection language="english" onUploadSuccess={fetchEnglish} getToken={getToken} />
+        <VoiceSection
+          language="english"
+          existingUploadedCount={englishItems.length}
+          onUploadSuccess={fetchEnglish}
+          getToken={getToken}
+        />
         <MediaList
           items={englishItems}
           type="audio"
@@ -68,7 +73,12 @@ export function VoiceTab({ getToken }: VoiceTabProps) {
 
       {/* ── Urdu ────────────────────────────────────────────────────────── */}
       <div className="space-y-4">
-        <VoiceSection language="urdu" onUploadSuccess={fetchUrdu} getToken={getToken} />
+        <VoiceSection
+          language="urdu"
+          existingUploadedCount={urduItems.length}
+          onUploadSuccess={fetchUrdu}
+          getToken={getToken}
+        />
         <MediaList
           items={urduItems}
           type="audio"

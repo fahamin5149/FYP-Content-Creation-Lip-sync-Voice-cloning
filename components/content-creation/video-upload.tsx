@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Upload, Video, X, CheckCircle, AlertCircle, Play, Pause } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getVideoUploadRejectionReason } from '@/lib/mediaUploadGuards'
 
 interface VideoUploadProps {
   onUploadComplete: (fileInfo: any) => void
@@ -41,6 +42,8 @@ export default function VideoUpload({
   }, [])
 
   const validateFile = (file: File): string | null => {
+    const wrongKind = getVideoUploadRejectionReason(file)
+    if (wrongKind) return wrongKind
     // Check file type
     if (!acceptedTypes.includes(file.type)) {
       return 'Invalid file type. Please upload a video file (MP4, AVI, MOV, WebM, or MKV).'

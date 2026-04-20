@@ -9,15 +9,15 @@ import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { getSupabaseClient } from '../db/supabase.js'
+import { ensureAudioFileIsWav } from '../utils/audioToWav.js'
+import { SUPPORTED_AUDIO_FORMATS_LABEL, SUPPORTED_AUDIO_MIME_TYPES } from '../constants/audioFormats.js'
+import { SUPPORTED_VIDEO_FORMATS_LABEL, SUPPORTED_VIDEO_MIME_TYPES } from '../constants/videoFormats.js'
+import { ensureVideoIsInternalStandard } from '../utils/videoToStandard.js'
+import { MAX_USER_AUDIOS_PER_LANGUAGE, MAX_USER_VIDEOS } from '../constants/mediaLimits.js'
 
 // ── MIME allowlists ──────────────────────────────────────────────────────────
-const ALLOWED_AUDIO = [
-  'audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/wav',
-  'audio/ogg', 'audio/x-m4a', 'audio/aac', 'audio/flac',
-]
-const ALLOWED_VIDEO = [
-  'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/avi',
-]
+const ALLOWED_AUDIO: string[] = [...SUPPORTED_AUDIO_MIME_TYPES]
+const ALLOWED_VIDEO: string[] = [...SUPPORTED_VIDEO_MIME_TYPES]
 
 // ── Multer factory ───────────────────────────────────────────────────────────
 // Two separate instances are exported (audioUpload, videoUpload).
@@ -49,13 +49,37 @@ const createUpload = (type: 'audio' | 'video') =>
       if (allowed.includes(file.mimetype)) {
         cb(null, true)
       } else {
-        cb(new Error('INVALID_MIME_TYPE'))
+        const label = type === 'audio' ? SUPPORTED_AUDIO_FORMATS_LABEL : SUPPORTED_VIDEO_FORMATS_LABEL
+        cb(new Error(`INVALID_MIME_TYPE:${type}:${label}`))
       }
     },
   })
 
 export const audioUpload = createUpload('audio')
 export const videoUpload = createUpload('video')
+
+async function countUserVideos(userId: string): Promise<number> {
+  const supabase = getSupabaseClient()
+  const { count, error } = await supabase
+    .from('user_media')
+    .select('id', { count: 'exact', head: true })
+    .eq('clerk_id', userId)
+    .eq('media_type', 'video')
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+async function countUserAudiosForLanguage(userId: string, language: string): Promise<number> {
+  const supabase = getSupabaseClient()
+  const { count, error } = await supabase
+    .from('user_media')
+    .select('id', { count: 'exact', head: true })
+    .eq('clerk_id', userId)
+    .eq('media_type', 'audio')
+    .eq('language', language)
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
 
 // ── Upload Audio ─────────────────────────────────────────────────────────────
 export const uploadAudio = async (req: Request, res: Response): Promise<void> => {
@@ -71,8 +95,52 @@ export const uploadAudio = async (req: Request, res: Response): Promise<void> =>
     return
   }
 
+  try {
+    const n = await countUserAudiosForLanguage(req.auth!.userId, language)
+    if (n >= MAX_USER_AUDIOS_PER_LANGUAGE) {
+      await fs.promises.unlink(req.file.path).catch(() => {})
+      res.status(400).json({
+        error: `Maximum of ${MAX_USER_AUDIOS_PER_LANGUAGE} ${language} voice samples allowed. Delete one to upload more.`,
+      })
+      return
+    }
+  } catch (e: any) {
+    await fs.promises.unlink(req.file.path).catch(() => {})
+    res.status(500).json({ error: e?.message || 'Could not verify storage limit' })
+    return
+  }
+
+  let diskFilename = req.file.filename
+  let absolutePath = req.file.path
+  let mimeType = req.file.mimetype
+  let sizeBytes = req.file.size
+  let originalFilename = req.file.originalname
+
+  try {
+    const wav = await ensureAudioFileIsWav(
+      absolutePath,
+      diskFilename,
+      mimeType,
+      originalFilename
+    )
+    absolutePath = wav.path
+    diskFilename = wav.filename
+    mimeType = wav.mimeType
+    sizeBytes = wav.sizeBytes
+    originalFilename = wav.displayFilename
+  } catch (convErr: any) {
+    console.error('Audio to WAV conversion failed:', convErr)
+    await fs.promises.unlink(req.file.path).catch(() => {})
+    res.status(500).json({
+      error:
+        convErr?.message ||
+        'Failed to convert audio to WAV. Install ffmpeg and use a supported format.',
+    })
+    return
+  }
+
   // Store as relative path from process.cwd() for consistent reconstruction
-  const filePath = `uploads/audio/${req.auth!.userId}/${req.file.filename}`
+  const filePath = `uploads/audio/${req.auth!.userId}/${diskFilename}`
   const supabase = getSupabaseClient()
 
   try {
@@ -82,10 +150,10 @@ export const uploadAudio = async (req: Request, res: Response): Promise<void> =>
         clerk_id: req.auth!.userId,
         media_type: 'audio',
         language,
-        filename: req.file.originalname,
+        filename: originalFilename,
         file_path: filePath,
-        mime_type: req.file.mimetype,
-        size_bytes: req.file.size,
+        mime_type: mimeType,
+        size_bytes: sizeBytes,
       } as any)
       .select()
       .single()
@@ -94,7 +162,7 @@ export const uploadAudio = async (req: Request, res: Response): Promise<void> =>
     res.json({ success: true, data })
   } catch (err: any) {
     // Rollback: remove orphaned file from disk if DB insert fails
-    await fs.promises.unlink(req.file.path).catch(() => {})
+    await fs.promises.unlink(absolutePath).catch(() => {})
     res.status(500).json({ error: err.message || 'Failed to save media record' })
   }
 }
@@ -106,7 +174,51 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
     return
   }
 
-  const filePath = `uploads/video/${req.auth!.userId}/${req.file.filename}`
+  try {
+    const n = await countUserVideos(req.auth!.userId)
+    if (n >= MAX_USER_VIDEOS) {
+      await fs.promises.unlink(req.file.path).catch(() => {})
+      res.status(400).json({
+        error: `Maximum of ${MAX_USER_VIDEOS} video templates allowed. Delete one to upload more.`,
+      })
+      return
+    }
+  } catch (e: any) {
+    await fs.promises.unlink(req.file.path).catch(() => {})
+    res.status(500).json({ error: e?.message || 'Could not verify storage limit' })
+    return
+  }
+
+  let diskFilename = req.file.filename
+  let absolutePath = req.file.path
+  let mimeType = req.file.mimetype
+  let sizeBytes = req.file.size
+  let originalFilename = req.file.originalname
+
+  try {
+    const normalized = await ensureVideoIsInternalStandard(
+      absolutePath,
+      diskFilename,
+      mimeType,
+      originalFilename
+    )
+    absolutePath = normalized.path
+    diskFilename = normalized.filename
+    mimeType = normalized.mimeType
+    sizeBytes = normalized.sizeBytes
+    originalFilename = normalized.displayFilename
+  } catch (convErr: any) {
+    console.error('Video normalization failed:', convErr)
+    await fs.promises.unlink(req.file.path).catch(() => {})
+    res.status(422).json({
+      error:
+        convErr?.message ||
+        'Uploaded video cannot be converted to internal MP4/H.264 format.',
+    })
+    return
+  }
+
+  const filePath = `uploads/video/${req.auth!.userId}/${diskFilename}`
   const supabase = getSupabaseClient()
 
   try {
@@ -116,10 +228,10 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
         clerk_id: req.auth!.userId,
         media_type: 'video',
         language: null,
-        filename: req.file.originalname,
+        filename: originalFilename,
         file_path: filePath,
-        mime_type: req.file.mimetype,
-        size_bytes: req.file.size,
+        mime_type: mimeType,
+        size_bytes: sizeBytes,
       } as any)
       .select()
       .single()
@@ -127,7 +239,7 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
     if (error) throw error
     res.json({ success: true, data })
   } catch (err: any) {
-    await fs.promises.unlink(req.file.path).catch(() => {})
+    await fs.promises.unlink(absolutePath).catch(() => {})
     res.status(500).json({ error: err.message || 'Failed to save media record' })
   }
 }

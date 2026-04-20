@@ -7,6 +7,12 @@ import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Upload, FileAudio, X, CheckCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  AUDIO_FILE_INPUT_ACCEPT,
+  SUPPORTED_AUDIO_FORMATS_LABEL,
+  isSupportedAudioFile,
+} from '@/lib/audioFormats'
+import { getAudioUploadRejectionReason } from '@/lib/mediaUploadGuards'
 
 interface AudioUploadProps {
   onUploadComplete: (fileInfo: any) => void
@@ -19,7 +25,7 @@ export default function AudioUpload({
   onUploadComplete,
   onError,
   maxSize = 50,
-  acceptedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/m4a', 'audio/ogg', 'audio/webm']
+  acceptedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/m4a', 'audio/ogg', 'audio/webm', 'audio/flac', 'audio/aac']
 }: AudioUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -39,9 +45,11 @@ export default function AudioUpload({
   }, [])
 
   const validateFile = (file: File): string | null => {
+    const wrongKind = getAudioUploadRejectionReason(file)
+    if (wrongKind) return wrongKind
     // Check file type
-    if (!acceptedTypes.includes(file.type)) {
-      return 'Invalid file type. Please upload an audio file (MP3, WAV, MP4, M4A, OGG, or WebM).'
+    if (!isSupportedAudioFile(file) && !acceptedTypes.includes(file.type)) {
+      return `Unsupported audio format. Supported formats: ${SUPPORTED_AUDIO_FORMATS_LABEL}.`
     }
 
     // Check file size
@@ -140,7 +148,7 @@ export default function AudioUpload({
           Upload Audio
         </CardTitle>
         <CardDescription>
-          Upload an audio file (MP3, WAV, MP4, M4A, OGG, or WebM) up to {maxSize}MB
+          Upload an audio file ({SUPPORTED_AUDIO_FORMATS_LABEL}) up to {maxSize}MB. Files are auto-converted to WAV.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -159,7 +167,7 @@ export default function AudioUpload({
             <input
               ref={fileInputRef}
               type="file"
-              accept={acceptedTypes.join(',')}
+              accept={AUDIO_FILE_INPUT_ACCEPT}
               onChange={handleFileSelect}
               className="hidden"
               disabled={isUploading}

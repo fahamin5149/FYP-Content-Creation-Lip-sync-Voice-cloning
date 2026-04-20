@@ -1,6 +1,11 @@
 import type { Request, Response } from 'express'
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execFileAsync = promisify(execFile)
 
 // ── Lip-sync output paths ─────────────────────────────────────────────────
 // Written by Next.js → Wav2Lip: LIPSYNC_Output/{userId}/{jobId}.mp4
@@ -107,5 +112,110 @@ export const streamLipSyncOutput = async (req: Request, res: Response): Promise<
   res.setHeader('Content-Type', 'video/mp4')
   res.setHeader('Accept-Ranges', 'bytes')
   fs.createReadStream(outputPath).pipe(res)
+}
+
+type ExportFormat = 'mp4' | 'mov' | 'webm'
+
+function parseExportFormat(value: string | undefined): ExportFormat | null {
+  const v = (value || '').toLowerCase()
+  if (v === 'mp4' || v === 'mov' || v === 'webm') return v
+  return null
+}
+
+async function convertLipSyncOutput(srcPath: string, outPath: string, format: ExportFormat): Promise<void> {
+  const argsByFormat: Record<ExportFormat, string[]> = {
+    mp4: ['-y', '-i', srcPath, '-c:v', 'libx264', '-c:a', 'aac', '-movflags', '+faststart', outPath],
+    mov: ['-y', '-i', srcPath, '-c:v', 'libx264', '-c:a', 'aac', outPath],
+    webm: ['-y', '-i', srcPath, '-c:v', 'libvpx-vp9', '-c:a', 'libopus', outPath],
+  }
+  await execFileAsync('ffmpeg', argsByFormat[format], { maxBuffer: 16 * 1024 * 1024 })
+}
+
+export const streamLipSyncOutputExport = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.auth!.userId
+  const jobId = String(req.params.jobId)
+  const format = parseExportFormat(String(req.query.format || 'mp4'))
+
+  if (!format) {
+    res.status(400).json({ error: 'Invalid export format. Supported: mp4, mov, webm.' })
+    return
+  }
+
+  const outputPath = resolveLipSyncOutputFile(userId, jobId)
+  if (!outputPath) {
+    res.status(404).json({ error: 'Lip-sync output not found on disk' })
+    return
+  }
+
+  // Native path for internal format
+  if (format === 'mp4') {
+    res.setHeader('Content-Type', 'video/mp4')
+    res.setHeader('Content-Disposition', `attachment; filename="${jobId}.mp4"`)
+    fs.createReadStream(outputPath).pipe(res)
+    return
+  }
+
+  const tempOutput = path.join(os.tmpdir(), `lipsync_${jobId}_${Date.now()}.${format}`)
+  try {
+    await convertLipSyncOutput(outputPath, tempOutput, format)
+  } catch (err) {
+    await fs.promises.unlink(tempOutput).catch(() => {})
+    res.status(422).json({
+      error: `Failed to convert output to ${format.toUpperCase()}.`,
+      detail:
+        err instanceof Error
+          ? err.message
+          : 'The generated video could not be transcoded to the selected export format.',
+    })
+    return
+  }
+
+  const mimeByFormat: Record<ExportFormat, string> = {
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    webm: 'video/webm',
+  }
+
+  res.setHeader('Content-Type', mimeByFormat[format])
+  res.setHeader('Content-Disposition', `attachment; filename="${jobId}.${format}"`)
+  const stream = fs.createReadStream(tempOutput)
+  stream.on('close', () => {
+    fs.promises.unlink(tempOutput).catch(() => {})
+  })
+  stream.on('error', () => {
+    fs.promises.unlink(tempOutput).catch(() => {})
+  })
+  stream.pipe(res)
+}
+
+/**
+ * DELETE /api/lipsync/output/:jobId — remove generated MP4 from disk (owner only).
+ */
+export const deleteLipSyncOutput = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.auth?.userId
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' })
+    return
+  }
+
+  const jobId = String(req.params.jobId || '').trim()
+  if (!jobId || jobId.length > 500 || !/^[a-zA-Z0-9_.-]+$/.test(jobId)) {
+    res.status(400).json({ error: 'Invalid job id' })
+    return
+  }
+
+  const outputPath = resolveLipSyncOutputFile(userId, jobId)
+  if (!outputPath) {
+    res.status(404).json({ error: 'Lip-sync output not found' })
+    return
+  }
+
+  try {
+    await fs.promises.unlink(outputPath)
+    res.json({ success: true })
+  } catch (err) {
+    console.error('deleteLipSyncOutput:', err)
+    res.status(500).json({ error: 'Failed to delete lip-sync output' })
+  }
 }
 
