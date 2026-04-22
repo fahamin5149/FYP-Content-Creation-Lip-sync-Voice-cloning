@@ -22,10 +22,29 @@ type Listener = (tasks: GenerationTask[]) => void
 
 const STORAGE_KEY = "generation_tasks_v1"
 const EVENT_NAME = "generation-tasks-updated"
+const COMPLETED_TTL_MS = 10 * 60 * 1000
+const FAILED_TTL_MS = 30 * 60 * 1000
+const CANCELLED_TTL_MS = 5 * 60 * 1000
 const tasks = new Map<string, GenerationTask>()
 const listeners = new Set<Listener>()
 
+function isExpired(task: GenerationTask, now = Date.now()): boolean {
+  const endedAt = task.completedAt ?? task.startedAt
+  if (task.status === "completed") return now - endedAt > COMPLETED_TTL_MS
+  if (task.status === "failed") return now - endedAt > FAILED_TTL_MS
+  if (task.status === "cancelled") return now - endedAt > CANCELLED_TTL_MS
+  return false
+}
+
+function pruneExpiredTasks() {
+  const now = Date.now()
+  for (const [id, task] of tasks.entries()) {
+    if (isExpired(task, now)) tasks.delete(id)
+  }
+}
+
 function emit() {
+  pruneExpiredTasks()
   const list = Array.from(tasks.values()).sort((a, b) => b.startedAt - a.startedAt)
   if (typeof window !== "undefined") {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
@@ -46,7 +65,14 @@ export function hydrateGenerationTasks() {
   if (!raw) return
   try {
     const parsed = JSON.parse(raw) as GenerationTask[]
-    parsed.forEach((t) => tasks.set(t.id, t))
+    parsed.forEach((t) => {
+      if (!isExpired(t)) tasks.set(t.id, t)
+    })
+    // Rewrite cache after dropping stale entries
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(Array.from(tasks.values()).sort((a, b) => b.startedAt - a.startedAt))
+    )
   } catch {
     // ignore malformed cache
   }

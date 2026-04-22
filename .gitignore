@@ -51,3 +51,18 @@ uploads/
 *.log
 
 checkpoints_v2/converter/checkpoint.pth
+
+# ML model weights / caches (large binaries — never commit)
+*.pth
+model_cache/
+Wav2Lip_Service/gfpgan_models/
+Wav2Lip_Service/gfpgan/weights/
+
+# Secrets
+Urdu_TTS/HF_TOKEN.txt
+
+# Build artefacts
+tsconfig.tsbuildinfo
+.turbo-test-err.txt
+.turbo-test-out.txt
+setuo1.md

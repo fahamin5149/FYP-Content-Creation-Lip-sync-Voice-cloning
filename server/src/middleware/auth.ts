@@ -1,7 +1,12 @@
 // server/src/middleware/auth.ts
 import type { Request, Response, NextFunction } from "express"
-import { ClerkExpressWithAuth } from "@clerk/clerk-sdk-node"
-import { clerkClient } from "@clerk/clerk-sdk-node"
+import { ClerkExpressWithAuth, createClerkClient } from "@clerk/clerk-sdk-node"
+
+// Lazy client: reads CLERK_SECRET_KEY at request time, after dotenv has loaded.
+// (The default exported clerkClient is initialized at import time, before dotenv.config() runs.)
+function getClerkClient() {
+  return createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! })
+}
 
 /**
  * Middleware: Allow requests carrying the INTERNAL_API_SECRET header.
@@ -65,7 +70,7 @@ export async function requireAuth(
     const token = authHeader.substring(7) // Remove "Bearer " prefix
 
     // Verify the token using Clerk
-    const session = await clerkClient.verifyToken(token)
+    const session = await getClerkClient().verifyToken(token)
 
     if (!session || !session.sub) {
       res.status(401).json({ error: "Invalid token" })

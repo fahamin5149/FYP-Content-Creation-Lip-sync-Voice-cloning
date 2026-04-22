@@ -22,6 +22,7 @@ import {
   getUserVideo,
   getUserAudio,
   deleteDraft,
+  syncUserToBackend,
   type LipSyncOutputItem,
 } from "@/lib/api"
 import {
@@ -54,7 +55,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
-  const { isLoaded, isSignedIn } = useUser()
+  const { isLoaded, isSignedIn, user } = useUser()
   const { getToken } = useAuth()
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [loadingDrafts, setLoadingDrafts] = useState(true)
@@ -115,10 +116,18 @@ export default function DashboardPage() {
   }, [isSignedIn, getToken])
 
   useEffect(() => {
-    if (isSignedIn) {
+    if (isSignedIn && user) {
+      // Silently upsert this user into the backend on every sign-in so the
+      // scripts FK constraint is always satisfied, even for users who skipped onboarding.
+      void syncUserToBackend(
+        user.emailAddresses[0]?.emailAddress || "",
+        user.firstName || undefined,
+        user.lastName || undefined,
+        getToken
+      ).catch(() => { /* non-critical — dashboard still loads */ })
       void loadDashboard()
     }
-  }, [isSignedIn, loadDashboard])
+  }, [isSignedIn, user, loadDashboard, getToken])
 
   const getStageFromMethod = (method: string, parameters?: any): string => {
     if (method === "generated") {

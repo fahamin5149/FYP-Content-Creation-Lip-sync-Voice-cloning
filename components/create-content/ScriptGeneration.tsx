@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -14,8 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
 import { AlertCircle, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import {
   DEFAULT_SCRIPT_GENERATION_FORM_DRAFT,
   type ScriptGenerationFormDraft,
@@ -29,7 +30,15 @@ interface ScriptGenerationProps {
   onComplete: (scriptId: string, script: string, params: any) => void
 }
 
-const scriptTypes = [
+const durationOptions = [
+  { value: 30, label: "30s" },
+  { value: 60, label: "1 min" },
+  { value: 120, label: "2 min" },
+  { value: 180, label: "3 min" },
+  { value: 300, label: "5 min" },
+  { value: 600, label: "10 min" },
+]
+const scriptStyles = [
   "Educational",
   "Entertainment",
   "Tutorial",
@@ -39,19 +48,6 @@ const scriptTypes = [
   "Promotional",
   "Interview Style",
 ]
-
-const tones = ["Professional", "Casual", "Humorous", "Serious", "Inspirational", "Conversational"]
-const introStyles = ["Direct", "Story-based", "Question-based"]
-const durationOptions = [
-  { value: 30, label: "30s" },
-  { value: 60, label: "1 min" },
-  { value: 120, label: "2 min" },
-  { value: 180, label: "3 min" },
-  { value: 300, label: "5 min" },
-  { value: 600, label: "10 min" },
-]
-const pacingOptions = ["Slow", "Medium", "Fast"]
-
 export default function ScriptGeneration({
   language,
   getToken,
@@ -65,6 +61,17 @@ export default function ScriptGeneration({
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const getFriendlyError = (err: unknown) => {
+    const fallback = "Could not generate the script right now. Please try again."
+    if (!(err instanceof Error) || !err.message) return fallback
+    try {
+      const parsed = JSON.parse(err.message) as { code?: string; message?: string }
+      if (parsed?.code === "UNSAFE_CONTENT_DENIED") return parsed.message || fallback
+    } catch {
+      // non-json
+    }
+    return fallback
+  }
 
   useEffect(() => {
     onDraftChange?.(form)
@@ -82,25 +89,19 @@ export default function ScriptGeneration({
       const params: ScriptGenerationParams = {
         title: form.title,
         language,
-        topic: form.topic,
-        scriptType: form.scriptType,
-        tone: form.tone,
+        topic: form.topic.trim(),
+        styleTone: form.styleTone?.trim() || undefined,
         targetAudience: form.targetAudience,
-        keyPoints: form.keyPoints,
+        keyPoints: form.keyPoints?.trim() || undefined,
         duration: form.duration,
-        pacing: form.pacing,
-        introStyle: form.introStyle,
-        includeHook: form.includeHook,
-        includeCTA: form.includeCTA,
-        includeTransitions: form.includeTransitions,
-        includeQuestions: form.includeQuestions,
-        specialRequirements: form.specialRequirements?.trim() || undefined,
         generateExactlyOneSentence: form.generateOneSentence,
       }
       const response: ScriptResponse = await generateScript(params, getToken)
       onComplete(response.scriptId, response.content, params)
     } catch (err) {
-      setError("Could not generate the script right now. Please try again.")
+      const msg = getFriendlyError(err)
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -127,47 +128,30 @@ export default function ScriptGeneration({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-white">Topic / Subject</Label>
+          <Label className="text-white">Topic (include sub-topic if needed)</Label>
           <Textarea
-            placeholder="e.g., How to create engaging short-form videos"
+            placeholder="e.g., Short-form video growth: hooks, pacing, and retention"
             value={form.topic}
             onChange={(e) => setForm((f) => ({ ...f, topic: e.target.value }))}
-            className="bg-black/40 text-white border-white/10 min-h-[60px] resize-y"
+            className="bg-black/40 text-white border-white/10 min-h-[80px] resize-y"
             rows={3}
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label className="text-white">Script type</Label>
-            <Select value={form.scriptType} onValueChange={(v) => setForm((f) => ({ ...f, scriptType: v }))}>
-              <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
-                <SelectValue placeholder="Select script type" />
-              </SelectTrigger>
-              <SelectContent className="bg-black/90 text-white border-white/10">
-                {scriptTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-white">Tone</Label>
-            <Select value={form.tone} onValueChange={(v) => setForm((f) => ({ ...f, tone: v }))}>
-              <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
-                <SelectValue placeholder="Select tone" />
-              </SelectTrigger>
-              <SelectContent className="bg-black/90 text-white border-white/10">
-                {tones.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label className="text-white">Script Style</Label>
+          <Select value={form.styleTone} onValueChange={(v) => setForm((f) => ({ ...f, styleTone: v }))}>
+            <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
+              <SelectValue placeholder="Select script style" />
+            </SelectTrigger>
+            <SelectContent className="bg-black/90 text-white border-white/10">
+              {scriptStyles.map((style) => (
+                <SelectItem key={style} value={style}>
+                  {style}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
@@ -181,114 +165,45 @@ export default function ScriptGeneration({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-white">Key points to cover (optional)</Label>
+          <Label className="text-white">Key points</Label>
           <Textarea
-            placeholder="Add bullet points or themes you want included"
+            placeholder="Add bullet points/themes. If you want a specific tone, mention it here."
             value={form.keyPoints}
             onChange={(e) => setForm((f) => ({ ...f, keyPoints: e.target.value }))}
             className="min-h-[120px] bg-black/40 text-white border-white/10"
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
           <div className="space-y-2">
             <Label className="text-white">Duration</Label>
-            <Select
-              value={String(form.duration)}
-              onValueChange={(val) => setForm((f) => ({ ...f, duration: Number(val) }))}
-            >
-              <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
-                <SelectValue placeholder="Choose duration" />
-              </SelectTrigger>
-              <SelectContent className="bg-black/90 text-white border-white/10">
-                {durationOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={String(opt.value)}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-white">Pacing</Label>
-            <Select value={form.pacing} onValueChange={(val) => setForm((f) => ({ ...f, pacing: val }))}>
-              <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
-                <SelectValue placeholder="Select pacing" />
-              </SelectTrigger>
-              <SelectContent className="bg-black/90 text-white border-white/10">
-                {pacingOptions.map((opt) => (
-                  <SelectItem key={opt} value={opt}>
-                    {opt}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label className="text-white">Intro style</Label>
-            <Select value={form.introStyle} onValueChange={(v) => setForm((f) => ({ ...f, introStyle: v }))}>
-              <SelectTrigger className="w-full bg-black/40 text-white border-white/10">
-                <SelectValue placeholder="Select intro style" />
-              </SelectTrigger>
-              <SelectContent className="bg-black/90 text-white border-white/10">
-                {introStyles.map((style) => (
-                  <SelectItem key={style} value={style}>
-                    {style}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex items-center gap-2 text-sm text-white/80">
-              <Checkbox
-                checked={form.includeHook}
-                onCheckedChange={(val) => setForm((f) => ({ ...f, includeHook: Boolean(val) }))}
-              />
-              Include hook
-            </label>
-            <label className="flex items-center gap-2 text-sm text-white/80">
-              <Checkbox
-                checked={form.includeCTA}
-                onCheckedChange={(val) => setForm((f) => ({ ...f, includeCTA: Boolean(val) }))}
-              />
-              Include CTA
-            </label>
-            <label className="flex items-center gap-2 text-sm text-white/80">
-              <Checkbox
-                checked={form.includeTransitions}
-                onCheckedChange={(val) => setForm((f) => ({ ...f, includeTransitions: Boolean(val) }))}
-              />
-              Add transitions
-            </label>
-            <label className="flex items-center gap-2 text-sm text-white/80">
-              <Checkbox
-                checked={form.includeQuestions}
-                onCheckedChange={(val) => setForm((f) => ({ ...f, includeQuestions: Boolean(val) }))}
-              />
-              Include questions
-            </label>
-            <label className="col-span-2 flex items-center gap-2 text-sm text-white/80">
-              <Checkbox
-                checked={form.generateOneSentence}
-                onCheckedChange={(val) => setForm((f) => ({ ...f, generateOneSentence: Boolean(val) }))}
-              />
-              Generate exactly 1 sentence
-            </label>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
+              {durationOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, duration: opt.value }))}
+                  className={`rounded-md border px-3 py-2 text-sm ${
+                    form.duration === opt.value
+                      ? "border-primary bg-primary/15 text-white"
+                      : "border-white/15 bg-black/20 text-white/80 hover:border-white/30"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-white">Special requirements (optional)</Label>
-          <Textarea
-            placeholder="Any specific tone, brand words, or constraints?"
-            value={form.specialRequirements}
-            onChange={(e) => setForm((f) => ({ ...f, specialRequirements: e.target.value }))}
-            className="min-h-[100px] bg-black/40 text-white border-white/10"
-          />
+          <label className="flex items-center gap-2 text-sm text-white/80">
+            <Checkbox
+              checked={form.generateOneSentence}
+              onCheckedChange={(val) => setForm((f) => ({ ...f, generateOneSentence: Boolean(val) }))}
+            />
+            Generate exactly 1 sentence
+          </label>
         </div>
 
         {error && (

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { AlertCircle, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import {
   DEFAULT_SCRIPT_PASSTHROUGH_FORM_DRAFT,
   type ScriptPassthroughFormDraft,
@@ -34,6 +35,17 @@ export default function ScriptPassthrough({
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const getFriendlyError = (err: unknown) => {
+    const fallback = "Could not save your script right now. Please try again."
+    if (!(err instanceof Error) || !err.message) return fallback
+    try {
+      const parsed = JSON.parse(err.message) as { code?: string; message?: string }
+      if (parsed?.code === "UNSAFE_CONTENT_DENIED") return parsed.message || fallback
+    } catch {
+      // non-json
+    }
+    return fallback
+  }
 
   useEffect(() => {
     onDraftChange?.(form)
@@ -60,7 +72,9 @@ export default function ScriptPassthrough({
       const response: ScriptResponse = await saveScriptDirectly(params, getToken)
       onComplete(response.scriptId, response.content, params)
     } catch (err) {
-      setError("Could not save your script right now. Please try again.")
+      const msg = getFriendlyError(err)
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }

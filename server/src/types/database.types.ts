@@ -11,22 +11,15 @@ export interface ScriptParameters {
   title?: string
   language?: string
   topic?: string
-  scriptType?: string
-  tone?: string
+  styleTone?: string
   targetAudience?: string
   keyPoints?: string
-  introStyle?: string
-  includeHook?: boolean
-  includeCTA?: boolean
-  includeTransitions?: boolean
-  includeQuestions?: boolean
-  specialRequirements?: string
   /** When true, script must be exactly one sentence (generation flow). */
   generateExactlyOneSentence?: boolean
 
   // Common parameters
   duration: number
-  pacing: string
+  pacing?: string
 }
 
 export interface ScriptVersion {
