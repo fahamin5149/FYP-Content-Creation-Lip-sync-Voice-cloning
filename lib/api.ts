@@ -146,18 +146,10 @@ export interface ScriptGenerationParams {
   title: string
   language: string
   topic: string
-  scriptType: string
-  tone: string
+  styleTone?: string
   targetAudience: string
   keyPoints?: string
   duration: number
-  pacing: string
-  introStyle?: string
-  includeHook?: boolean
-  includeCTA?: boolean
-  includeTransitions?: boolean
-  includeQuestions?: boolean
-  specialRequirements?: string
   /** Server enforces exactly 1 sentence (prompt + post-trim). */
   generateExactlyOneSentence?: boolean
 }

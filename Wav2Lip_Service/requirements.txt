@@ -23,3 +23,7 @@ face-alignment
 
 # Some dependencies still require newer typing_extensions explicitly on 3.9.
 typing_extensions>=4.5.0
+
+# GFPGAN face restoration post-processing (sharpens jaw / face region after Wav2Lip)
+# Pulls in basicsr, facexlib, realesrgan automatically.
+gfpgan

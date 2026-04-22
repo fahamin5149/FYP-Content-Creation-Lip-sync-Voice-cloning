@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { AlertCircle, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import {
   DEFAULT_SCRIPT_REFINEMENT_FORM_DRAFT,
   type ScriptRefinementFormDraft,
@@ -53,6 +54,17 @@ export default function ScriptRefinement({
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const getFriendlyError = (err: unknown) => {
+    const fallback = "Could not refine the script right now. Please try again."
+    if (!(err instanceof Error) || !err.message) return fallback
+    try {
+      const parsed = JSON.parse(err.message) as { code?: string; message?: string }
+      if (parsed?.code === "UNSAFE_CONTENT_DENIED") return parsed.message || fallback
+    } catch {
+      // non-json
+    }
+    return fallback
+  }
 
   useEffect(() => {
     onDraftChange?.(form)
@@ -79,7 +91,9 @@ export default function ScriptRefinement({
       const response: ScriptResponse = await refineScript(params, getToken)
       onComplete(response.scriptId, response.content, params)
     } catch (err) {
-      setError("Could not refine the script right now. Please try again.")
+      const msg = getFriendlyError(err)
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }

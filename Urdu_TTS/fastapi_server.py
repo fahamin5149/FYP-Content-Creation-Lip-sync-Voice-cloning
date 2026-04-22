@@ -51,6 +51,18 @@ from openvoice.api import ToneColorConverter
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("urdu-tts-service")
 
+# ── HuggingFace token: prefer HF_TOKEN.txt (bat `set /p` leaves trailing \r) ──
+_THIS_DIR = Path(__file__).resolve().parent
+_hf_token_file = _THIS_DIR / "HF_TOKEN.txt"
+if _hf_token_file.exists():
+    _token = _hf_token_file.read_text(encoding="utf-8").strip()
+    if _token:
+        os.environ["HUGGINGFACE_HUB_TOKEN"] = _token
+        os.environ["HF_TOKEN"] = _token
+elif os.environ.get("HUGGINGFACE_HUB_TOKEN"):
+    # strip any \r injected by bat set /p
+    os.environ["HUGGINGFACE_HUB_TOKEN"] = os.environ["HUGGINGFACE_HUB_TOKEN"].strip()
+
 # ── Path resolution ───────────────────────────────────────────────────────────
 # __file__ = <project_root>/Urdu_TTS/fastapi_server.py
 # parent   = <project_root>/Urdu_TTS/

@@ -9,6 +9,20 @@ import { getFeedbackRefinementPrompt } from '../prompts/feedbackRefinement.js';
 import type { Script, ScriptParameters, ScriptMetadata } from '../types/database.types.js';
 import { takeFirstNSentences } from '../utils/sentences.js';
 
+type ManualSafetyResult = {
+  status: 'ok' | 'warning' | 'refused';
+  code: 'CONTENT_SAFE' | 'CONTENT_REWRITTEN_FOR_SAFETY' | 'UNSAFE_CONTENT_REFUSED';
+  message?: string;
+  safeContent?: string;
+  details?: {
+    reason?: string;
+  };
+  action?: {
+    allow_continue: boolean;
+    suggestion?: string;
+  };
+};
+
 /**
  * Helper function to calculate word count and duration
  */
@@ -18,6 +32,94 @@ const calculateMetadata = (content: string, pacing: string) => {
   const estimatedDuration = wordCount / wordsPerMinute;
   return { wordCount, estimatedDuration };
 };
+
+const manualUploadSafetyPrompt = (language: string) => `You are a strict safety validator for user-submitted scripts.
+
+Enforce these guardrails:
+- Do NOT allow harassment, hate speech, abusive, toxic, insulting, or demeaning content.
+- Do NOT allow illegal or harmful instructions.
+- Keep outputs safe, respectful, and appropriate for a general audience.
+
+If unsafe content appears:
+- Rewrite into a safe, neutral, professional form preserving intent where possible.
+- If safe rewriting is not feasible, refuse politely.
+
+Return ONLY valid JSON matching this exact schema:
+{
+  "status": "ok" | "warning" | "refused",
+  "code": "CONTENT_SAFE" | "CONTENT_REWRITTEN_FOR_SAFETY" | "UNSAFE_CONTENT_REFUSED",
+  "message": "string",
+  "safeContent": "string or empty",
+  "details": { "reason": "string" },
+  "action": { "allow_continue": true | false, "suggestion": "string" }
+}
+
+Language requirement:
+- Keep the output script language aligned with the input language (${language}).
+`;
+
+async function validateManualScriptSafety(content: string, language: string): Promise<ManualSafetyResult> {
+  const messages = [
+    {
+      role: 'user' as const,
+      content: `${manualUploadSafetyPrompt(language)}\n\nInput script:\n${content}`,
+    },
+  ];
+
+  const raw = await callOpenRouter(messages, 1200, 0.1);
+  let parsed: ManualSafetyResult | null = null;
+  try {
+    parsed = JSON.parse(raw) as ManualSafetyResult;
+  } catch {
+    // fallback below
+  }
+
+  if (!parsed || !parsed.status || !parsed.code) {
+    return {
+      status: 'ok',
+      code: 'CONTENT_SAFE',
+      message: 'Safety validator fallback applied.',
+      action: { allow_continue: true, suggestion: 'Continue normally.' },
+      safeContent: content,
+    };
+  }
+
+  if (parsed.status === 'warning') {
+    return {
+      ...parsed,
+      action: { allow_continue: true, suggestion: parsed.action?.suggestion || 'Proceed with the safe rewrite.' },
+      safeContent: parsed.safeContent?.trim() ? parsed.safeContent : content,
+    };
+  }
+
+  if (parsed.status === 'refused') {
+    return {
+      ...parsed,
+      action: { allow_continue: false, suggestion: parsed.action?.suggestion || 'Please provide safer wording.' },
+      safeContent: '',
+    };
+  }
+
+  return {
+    ...parsed,
+    action: { allow_continue: true, suggestion: parsed.action?.suggestion || 'Continue normally.' },
+    safeContent: content,
+  };
+}
+
+function denyUnsafeRequest(res: Response, reason: string) {
+  res.status(400).json({
+    status: 'error',
+    code: 'UNSAFE_CONTENT_DENIED',
+    message:
+      'Your request contains content that is not appropriate for this platform. Please rewrite it in a safe and respectful way and try again.',
+    details: { reason },
+    action: {
+      allow_continue: false,
+      suggestion: 'Please edit your script/request to remove harmful or abusive content.',
+    },
+  });
+}
 
 /**
  * Generate Script
@@ -32,27 +134,30 @@ export const generateScript = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { 
-      title, language, topic, scriptType, tone, targetAudience, keyPoints,
-      duration, pacing, introStyle, includeHook, includeCTA,
-      includeTransitions, includeQuestions, specialRequirements,
-      generateExactlyOneSentence,
-      generateExactlyThreeSentences,
+    const {
+      title, language, topic, styleTone, targetAudience, keyPoints,
+      duration, generateExactlyOneSentence, generateExactlyThreeSentences,
     } = req.body;
 
     // Validation
-    if (!title || !language || !topic || !duration || !pacing) {
-      res.status(400).json({ error: 'Missing required fields: title, language, topic, duration, pacing' });
+    if (!title || !language || !topic || !targetAudience || !duration) {
+      res.status(400).json({ error: 'Missing required fields: title, language, topic, targetAudience, duration' });
       return;
     }
     
+    const pacing = 'Medium';
     const shortOneSentence = Boolean(
       generateExactlyOneSentence ?? generateExactlyThreeSentences,
     );
+    const generateSafetyInput = [topic, styleTone, keyPoints].filter(Boolean).join('\n');
+    const generateSafety = await validateManualScriptSafety(generateSafetyInput, language);
+    if (generateSafety.status !== 'ok') {
+      denyUnsafeRequest(res, generateSafety.details?.reason || 'Unsafe request content');
+      return;
+    }
     const parameters: ScriptParameters = {
-      title, language, topic, scriptType, tone, targetAudience, keyPoints,
-      duration, pacing, introStyle, includeHook, includeCTA,
-      includeTransitions, includeQuestions, specialRequirements,
+      title, language, topic, styleTone, targetAudience, keyPoints,
+      duration,
       generateExactlyOneSentence: shortOneSentence,
     };
     
@@ -76,8 +181,8 @@ export const generateScript = async (req: Request, res: Response): Promise<void>
     const metadata: ScriptMetadata = { 
       wordCount, 
       estimatedDuration, 
-      scriptType, 
-      tone 
+      scriptType: styleTone,
+      tone: styleTone,
     };
     
     const scriptId = uuidv4();
@@ -153,6 +258,12 @@ export const refineScript = async (req: Request, res: Response): Promise<void> =
       systemPrompt = getCustomRefinementPrompt(language, duration, pacing, customInstructions);
     } else {
       res.status(400).json({ error: 'Invalid refinement type. Must be "simple" or "custom"' });
+      return;
+    }
+    const refineSafetyInput = [originalScript, customInstructions].filter(Boolean).join('\n');
+    const refineSafety = await validateManualScriptSafety(refineSafetyInput, language);
+    if (refineSafety.status !== 'ok') {
+      denyUnsafeRequest(res, refineSafety.details?.reason || 'Unsafe script content');
       return;
     }
     
@@ -503,8 +614,16 @@ export const saveScriptDirect = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    const safety = await validateManualScriptSafety(String(content), String(language));
+    if (safety.status !== 'ok') {
+      denyUnsafeRequest(res, safety.details?.reason || 'Unsafe script content');
+      return;
+    }
+
+    const finalContent = (safety.safeContent && safety.safeContent.trim()) || content;
+
     // Calculate metadata
-    const wordCount = content.trim().split(/\s+/).length;
+    const wordCount = finalContent.trim().split(/\s+/).length;
     const estimatedDuration = wordCount / 140; // assume medium pacing
     const metadata: ScriptMetadata = { wordCount, estimatedDuration };
 
@@ -520,7 +639,7 @@ export const saveScriptDirect = async (req: Request, res: Response): Promise<voi
         title,
         language,
         method: 'passthrough' as const,
-        content,
+        content: finalContent,
         parameters: null,
         metadata,
         versions: [],
@@ -536,8 +655,15 @@ export const saveScriptDirect = async (req: Request, res: Response): Promise<voi
     }
 
     res.json({
+      safety: {
+        status: safety.status,
+        code: safety.code,
+        message: safety.message,
+        details: safety.details,
+        action: safety.action,
+      },
       scriptId,
-      content,
+      content: finalContent,
       metadata
     });
   } catch (error: any) {

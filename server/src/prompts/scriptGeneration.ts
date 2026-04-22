@@ -4,20 +4,19 @@ interface ScriptGenerationParams {
   title: string;
   language: string;
   topic: string;
-  scriptType: string;
-  tone: string;
+  styleTone?: string;
   targetAudience: string;
   keyPoints?: string;
   duration: number;
-  pacing: string;
-  introStyle?: string;
-  includeHook?: boolean;
-  includeCTA?: boolean;
-  includeTransitions?: boolean;
-  includeQuestions?: boolean;
-  specialRequirements?: string;
   generateExactlyOneSentence?: boolean;
 }
+
+const SAFETY_GUARDRAILS_BLOCK = `
+**SAFETY GUARDRAILS (MANDATORY):**
+Ensure all outputs are safe, respectful, and appropriate for a general audience. Do not generate or propagate harmful, abusive, toxic, or illegal content. If such content is present in the input, rewrite it into a safe alternative while preserving intent where possible. If not possible, refuse politely.
+- Do NOT produce or amplify harassment, hate speech, abusive language, insults, or demeaning content.
+- Do NOT produce illegal or harmful instructions.
+`;
 
 /**
  * Get the comprehensive system prompt for script generation.
@@ -46,8 +45,7 @@ export const getScriptGenerationPrompt = (parameters: ScriptGenerationParams): s
 // ── Exactly 1 sentence (checkbox) — short prompts; no duration/word-count conflict ──
 
 const getEnglishOneSentencePrompt = (parameters: ScriptGenerationParams): string => {
-  const { topic, scriptType, tone, targetAudience, keyPoints, specialRequirements } = parameters;
-  const extra = specialRequirements?.trim() ? `\nAdditional notes: ${specialRequirements.trim()}` : '';
+  const { topic, styleTone, targetAudience, keyPoints } = parameters;
   return `You write spoken scripts for talking-head / lip-sync videos.
 
 **NON-NEGOTIABLE OUTPUT RULE — READ FIRST:**
@@ -55,20 +53,18 @@ const getEnglishOneSentencePrompt = (parameters: ScriptGenerationParams): string
 - The sentence must end with . or ! or ?
 - Do not use bullet lists. Do not add a title line. Do not number lines.
 - Output nothing before or after that sentence (no quotes, no "Here is the script:").
+${SAFETY_GUARDRAILS_BLOCK}
 
 **Style:** First-person, conversational, natural for speaking on camera — like a real creator talking to ${targetAudience || 'the viewer'}.
 **Topic:** ${topic}
-${scriptType ? `**Content type:** ${scriptType}` : ''}
-${tone ? `**Tone:** ${tone}` : ''}
+${styleTone ? `**Script Style:** ${styleTone}` : ''}
 ${keyPoints ? `**Touch on (in that one sentence):** ${keyPoints}` : ''}
-${extra}
 
 Write the 1 sentence now.`;
 };
 
 const getUrduOneSentencePrompt = (parameters: ScriptGenerationParams): string => {
-  const { topic, scriptType, tone, targetAudience, keyPoints, specialRequirements } = parameters;
-  const extra = specialRequirements?.trim() ? `\nاضافی نوٹس: ${specialRequirements.trim()}` : '';
+  const { topic, styleTone, targetAudience, keyPoints } = parameters;
   return `آپ lip-sync / talking-head ویڈیوز کے لیے بولے جانے والے اسکرپٹ لکھتے ہیں۔
 
 **لازمی اصول — پہلے پڑھیں:**
@@ -76,14 +72,13 @@ const getUrduOneSentencePrompt = (parameters: ScriptGenerationParams): string =>
 - جملے کا اختتام ۔ یا ! یا ؟ پر ہو۔
 - کوئی title نہیں، کوئی نمبرنگ نہیں، کوئی bullet list نہیں۔
 - اسکرپٹ کے علاوہ کچھ نہ لکھیں (نہ "یہ رہا اسکرپٹ:" وغیرہ)۔
+${SAFETY_GUARDRAILS_BLOCK}
 
 **انداز:** پہلے شخص میں، قدرتی بول چال، camera پر بولنے کے قابل۔
 **موضوع:** ${topic}
-${scriptType ? `**قسم:** ${scriptType}` : ''}
-${tone ? `**انداز:** ${tone}` : ''}
+${styleTone ? `**Script Style:** ${styleTone}` : ''}
 ${targetAudience ? `**سامعین:** ${targetAudience}` : ''}
 ${keyPoints ? `**ان نکات کو ایک جملے میں سمیٹیں:** ${keyPoints}` : ''}
-${extra}
 
 اب صرف وہ 1 جملہ لکھیں۔`;
 };
@@ -93,23 +88,11 @@ ${extra}
 // ─────────────────────────────────────────────────────────────
 
 const getEnglishScriptGenerationPrompt = (parameters: ScriptGenerationParams): string => {
-  const {
-    topic, scriptType, tone, targetAudience, keyPoints,
-    duration, pacing, introStyle, includeHook, includeCTA,
-    includeTransitions, includeQuestions, specialRequirements
-  } = parameters;
+  const { topic, styleTone, targetAudience, keyPoints, duration } = parameters;
 
   const durationInMinutes = duration / 60;
-  const wordsPerMinute = pacing === 'Slow' ? 120 : pacing === 'Fast' ? 160 : 140;
+  const wordsPerMinute = 140;
   const targetWordCount = Math.round(durationInMinutes * wordsPerMinute);
-
-  const scriptTypeSection = scriptType
-    ? `\n📌 **Content Type:** ${scriptType}\n${getScriptTypeGuidanceEnglish(scriptType)}`
-    : '';
-
-  const toneSection = tone
-    ? `\n📌 **Tone/Vibe:** ${tone}\n${getToneGuidanceEnglish(tone)}`
-    : '\n📌 **Tone/Vibe:** Natural and conversational — like a content creator sharing their thoughts on camera.';
 
   const audienceSection = targetAudience
     ? `\n📌 **Target Audience:** ${targetAudience}\nWrite at a level that ${targetAudience} will find accessible and engaging. Use language, references, and examples that resonate with them. Don't talk down to them, but also don't assume they know everything.`
@@ -119,6 +102,7 @@ const getEnglishScriptGenerationPrompt = (parameters: ScriptGenerationParams): s
 
 **CRITICAL CONTEXT:**
 This script will be used for LIP-SYNC video creation. A real person will appear on camera speaking these exact words. The script MUST sound natural when spoken aloud by a content creator talking directly to their audience.
+${SAFETY_GUARDRAILS_BLOCK}
 
 **YOUR MISSION:**
 Write a script that sounds like someone is talking to ${targetAudience || 'their audience'} — a friend, colleague, or trusted expert sharing genuine thoughts and opinions about "${topic}". This should feel CONVERSATIONAL, AUTHENTIC, and NATURAL — like someone talking, not reading.
@@ -157,9 +141,9 @@ Write a script that sounds like someone is talking to ${targetAudience || 'their
 
 **PROJECT DETAILS:**
 
-📌 **Topic:** ${topic}${scriptTypeSection}${audienceSection}${toneSection}
+📌 **Topic:** ${topic}${audienceSection}${styleTone ? `\n📌 **Script Style:** ${styleTone}` : ''}
 📌 **Duration:** ${duration} seconds (${durationInMinutes.toFixed(1)} minute${durationInMinutes > 1 ? 's' : ''})
-📌 **Pacing:** ${pacing || 'Medium'} (${wordsPerMinute} WPM)
+📌 **Pacing:** Medium (${wordsPerMinute} WPM)
 📌 **Target Word Count:** ${targetWordCount} words (Range: ${Math.floor(targetWordCount * 0.9)}–${Math.ceil(targetWordCount * 1.1)} words)
 
 **KEY POINTS TO COVER:**
@@ -167,33 +151,23 @@ ${keyPoints || 'Use your judgment to identify the most valuable insights to shar
 
 **SCRIPT STRUCTURE:**
 
-${includeHook ? `**OPENING (First 5-10 seconds):**
-Start with an attention-grabbing hook that feels NATURAL and CONVERSATIONAL:
-- Open with a question: "Ever wondered why…?"
-- Share a surprising insight: "You know what most people get wrong about…"
-- Make a bold statement: "Here's the truth about…"
-- Set up intrigue: "I'm about to share something that changed how I think about…"
-- Be direct: "Let's talk about…"
-
-Make viewers immediately curious while keeping it authentic.
-
-` : ''}**INTRO (${introStyle || 'Direct'}):**
-${getIntroStyleGuidanceEnglish(introStyle)}
+**INTRO:**
+Open naturally and clearly in the first line.
 
 **MAIN CONTENT:**
 - Break down the topic into digestible chunks — explain it like you're helping a friend understand
 - Use real examples, personal experiences, or relatable scenarios
-- Keep the ${tone || 'natural'} vibe throughout, but always stay authentic and conversational
+- Keep the requested style/tone throughout, but always stay authentic and conversational
 - Use analogies or comparisons from everyday life
-${includeTransitions ? '- Transition naturally: "Okay, now that we\'ve covered X, let me tell you about Y…" or simply "So, here\'s the thing…"\n' : ''}${includeQuestions ? '- Ask rhetorical questions to maintain engagement: "Sound familiar?" "Make sense?" "Want to know the crazy part?"\n' : ''}- Stay on track but allow for natural digressions that add personality
+- Stay on track and easy to follow
 
 **CLOSING:**
 - Wrap up with your main takeaway — what do you want them to remember?
 - End on a personal note: your final thought, recommendation, or perspective
-${includeCTA ? '- Add a natural call-to-action: "If you found this helpful, definitely subscribe" or "Let me know in the comments what you think about…"\n' : ''}- Make it feel like a natural end to a conversation, not an abrupt stop
+- Make it feel like a natural end to a conversation, not an abrupt stop
 
 **SPECIAL INSTRUCTIONS:**
-${specialRequirements || 'Use your best judgment to create authentic, engaging content suitable for a talking-to-camera video'}
+Use your best judgment to create authentic, engaging content suitable for a talking-to-camera video.
 
 **LIP-SYNC OPTIMIZATION — CRITICAL:**
 ✓ Write for SPOKEN delivery — every sentence must sound natural when spoken aloud
@@ -225,23 +199,11 @@ Now write an authentic, conversational script about "${topic}" that ${targetAudi
 // ─────────────────────────────────────────────────────────────
 
 const getUrduScriptGenerationPrompt = (parameters: ScriptGenerationParams): string => {
-  const {
-    topic, scriptType, tone, targetAudience, keyPoints,
-    duration, pacing, introStyle, includeHook, includeCTA,
-    includeTransitions, includeQuestions, specialRequirements
-  } = parameters;
+  const { topic, styleTone, targetAudience, keyPoints, duration } = parameters;
 
   const durationInMinutes = duration / 60;
-  const wordsPerMinute = pacing === 'Slow' ? 120 : pacing === 'Fast' ? 160 : 140;
+  const wordsPerMinute = 140;
   const targetWordCount = Math.round(durationInMinutes * wordsPerMinute);
-
-  const scriptTypeSection = scriptType
-    ? `\n📌 **قسم:** ${scriptType}\n${getScriptTypeGuidanceUrdu(scriptType)}`
-    : '';
-
-  const toneSection = tone
-    ? `\n📌 **Tone/انداز:** ${tone}\n${getToneGuidanceUrdu(tone)}`
-    : '\n📌 **Tone/انداز:** قدرتی اور conversational — جیسے ایک content creator camera پر اپنی بات share کر رہا ہے۔';
 
   const audienceSection = targetAudience
     ? `\n📌 **سامعین:** ${targetAudience}\nایسی level پر لکھیں جو ${targetAudience} آسانی سے سمجھ سکیں اور پسند کریں۔ ایسی زبان، حوالے، اور مثالیں دیں جو ان سے relate کریں۔`
@@ -251,6 +213,7 @@ const getUrduScriptGenerationPrompt = (parameters: ScriptGenerationParams): stri
 
 **CRITICAL CONTEXT (اہم سیاق):**
 یہ اسکرپٹ LIP-SYNC video کے لیے استعمال ہوگا۔ کوئی اصل شخص کیمرے پر آئے گا اور یہ الفاظ بولے گا۔ اسکرپٹ بالکل قدرتی ہونا چاہیے — جیسے کوئی اپنی زبان میں بات کر رہا ہو، نہ کہ کتاب سے پڑھ رہا ہو۔
+${SAFETY_GUARDRAILS_BLOCK}
 
 **آپ کا مقصد:**
 ایک ایسا اسکرپٹ لکھیں جو ${targetAudience || 'سامعین'} کو لگے کہ کوئی دوست، ساتھی، یا سمجھدار شخص ان سے "${topic}" کے بارے میں اپنی سچی رائے share کر رہا ہے۔ یہ بالکل قدرتی، آرام سے بولی جانے والی اردو میں ہونی چاہیے — جیسے کوئی بات کر رہا ہے، پڑھ نہیں رہا۔
@@ -289,9 +252,9 @@ const getUrduScriptGenerationPrompt = (parameters: ScriptGenerationParams): stri
 
 **پروجیکٹ کی تفصیلات:**
 
-📌 **موضوع:** ${topic}${scriptTypeSection}${audienceSection}${toneSection}
+📌 **موضوع:** ${topic}${audienceSection}${styleTone ? `\n📌 **Script Style:** ${styleTone}` : ''}
 📌 **مدت:** ${duration} سیکنڈ (${durationInMinutes.toFixed(1)} منٹ)
-📌 **رفتار:** ${pacing || 'Medium'} (${wordsPerMinute} WPM)
+📌 **رفتار:** Medium (${wordsPerMinute} WPM)
 📌 **الفاظ کی تعداد:** ${targetWordCount} الفاظ (Range: ${Math.floor(targetWordCount * 0.9)}–${Math.ceil(targetWordCount * 1.1)})
 
 **اہم نکات جو cover کرنے ہیں:**
@@ -299,33 +262,23 @@ ${keyPoints || 'اپنی سمجھ سے اس topic کے بارے میں سب سے
 
 **اسکرپٹ کی ساخت:**
 
-${includeHook ? `**شروعات (پہلے 5-10 سیکنڈ):**
-ایک attention-grabbing لیکن natural شروعات کریں:
-- سوال سے: "کبھی سوچا ہے کہ…"
-- دلچسپ بات سے: "یار ایک بات بتاؤں…"
-- bold statement: "دیکھیں سچ یہ ہے کہ…"
-- intrigue پیدا کریں: "میں آج آپ کو کچھ ایسا بتانے والا ہوں جس نے…"
-- direct رہیں: "چلیں بات کرتے ہیں…"
-
-قدرتی رہیں لیکن فوری دلچسپی پیدا کریں۔
-
-` : ''}**تعارف (${introStyle || 'Direct'}):**
-${getIntroStyleGuidanceUrdu(introStyle)}
+**تعارف:**
+قدرتی انداز میں واضح آغاز کریں۔
 
 **مرکزی مواد:**
 - موضوع کو آسان حصوں میں توڑیں — ایسے سمجھائیں جیسے کسی دوست کی مدد کر رہے ہیں
 - اصل مثالیں، ذاتی تجربات، یا relatable scenarios استعمال کریں
-- ${tone || 'قدرتی'} vibe برقرار رکھیں، لیکن ہمیشہ authentic اور conversational رہیں
+- style/tone کو برقرار رکھیں، لیکن ہمیشہ authentic اور conversational رہیں
 - روزمرہ کی زندگی سے analogies یا comparisons دیں
-${includeTransitions ? '- قدرتی طریقے سے آگے بڑھیں: "اچھا اب یہ بات کرتے ہیں…" یا "تو دیکھیں بات یہ ہے…"\n' : ''}${includeQuestions ? '- سوالات پوچھیں: "سمجھ آ رہی ہے؟" "صحیح نا؟" "سنو عجیب بات کیا ہے؟"\n' : ''}- focused رہیں لیکن تھوڑا natural digression چلتا ہے — یہ personality add کرتا ہے
+- focused رہیں اور flow سادہ رکھیں
 
 **اختتام:**
 - اپنی main بات کا خلاصہ کریں — آپ کیا چاہتے ہیں کہ لوگ یاد رکھیں؟
 - ذاتی نوٹ پر ختم کریں: آپ کی آخری سوچ، تجویز، یا نقطہ نظر
-${includeCTA ? '- قدرتی call-to-action دیں: "اگر یہ مددگار لگا تو subscribe ضرور کریں" یا "comment میں بتائیں آپ کا کیا خیال ہے…"\n' : ''}- ایسے ختم کریں جیسے بات چیت کا natural اختتام ہے، اچانک نہیں
+- ایسے ختم کریں جیسے بات چیت کا natural اختتام ہے، اچانک نہیں
 
 **خاص ہدایات:**
-${specialRequirements || 'اپنی سمجھ سے authentic، دلچسپ content بنائیں جو camera پر بولنے کے لیے موزوں ہو'}
+اپنی سمجھ سے authentic، دلچسپ content بنائیں جو camera پر بولنے کے لیے موزوں ہو۔
 
 **LIP-SYNC کے لیے optimization — بہت اہم:**
 ✓ بولنے کے لیے لکھیں — ہر جملہ قدرتی طور پر بولا جا سکے

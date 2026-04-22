@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { lipSyncService } from '@/lib/ai-services'
 
+export const maxDuration = 600 // 10 minutes — Wav2Lip + GFPGAN can be slow
+
 export async function POST(request: NextRequest) {
   try {
     const { 

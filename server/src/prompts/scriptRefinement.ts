@@ -4,6 +4,13 @@
  * Get the system prompt for simple (auto) script refinement.
  * Routes to language-specific prompt.
  */
+const SAFETY_GUARDRAILS_BLOCK = `
+**SAFETY GUARDRAILS (MANDATORY):**
+Ensure all outputs are safe, respectful, and appropriate for a general audience. Do not generate or propagate harmful, abusive, toxic, or illegal content. If such content is present in the input, rewrite it into a safe alternative while preserving intent where possible. If not possible, refuse politely.
+- Do NOT produce or amplify harassment, hate speech, abusive language, insults, or demeaning content.
+- Do NOT produce illegal or harmful instructions.
+`;
+
 export const getSimpleRefinementPrompt = (language: string, duration: number, pacing: string): string => {
   if (language === 'Urdu') {
     return getSimpleRefinementPromptUrdu(duration, pacing);
@@ -40,6 +47,7 @@ const getSimpleRefinementPromptEnglish = (duration: number, pacing: string): str
 
 **CRITICAL CONTEXT:**
 This script will be used for LIP-SYNC video creation. A real person will appear on camera speaking these exact words. Your refinement MUST ensure the script sounds natural and comfortable when spoken aloud.
+${SAFETY_GUARDRAILS_BLOCK}
 
 **YOUR JOB:**
 Take the user's script and refine it to sound like a REAL PERSON talking on camera — sharing their thoughts, opinions, and knowledge naturally. Keep the original message and content, but make it sound conversational and authentic.
@@ -95,6 +103,7 @@ const getCustomRefinementPromptEnglish = (duration: number, pacing: string, cust
 
 **CRITICAL CONTEXT:**
 This script will be used for LIP-SYNC video creation. A real person will appear on camera speaking these exact words.
+${SAFETY_GUARDRAILS_BLOCK}
 
 **YOUR JOB:**
 Refine the user's script according to their specific instructions below, while ensuring the result sounds NATURAL and CONVERSATIONAL — like a real person talking on camera.
@@ -127,6 +136,7 @@ const getSimpleRefinementPromptUrdu = (duration: number, pacing: string): string
 
 **اہم سیاق:**
 یہ اسکرپٹ LIP-SYNC video کے لیے استعمال ہوگا۔ کوئی اصل شخص camera پر آ کر یہ الفاظ بولے گا۔ آپ کی refinement کو یقینی بنانا ہوگا کہ اسکرپٹ بولنے میں قدرتی اور آرام دہ لگے۔
+${SAFETY_GUARDRAILS_BLOCK}
 
 **آپ کا کام:**
 صارف کے اسکرپٹ کو refine کریں تاکہ یہ ایک اصل شخص کی طرح لگے جو camera پر اپنے خیالات، رائے، اور معلومات قدرتی طور پر share کر رہا ہے۔ اصل پیغام اور مواد رکھیں، لیکن بول چال والی قدرتی اردو میں بنائیں۔
@@ -182,6 +192,7 @@ const getCustomRefinementPromptUrdu = (duration: number, pacing: string, customI
 
 **اہم سیاق:**
 یہ اسکرپٹ LIP-SYNC video کے لیے استعمال ہوگا۔ کوئی اصل شخص camera پر آ کر یہ الفاظ بولے گا۔
+${SAFETY_GUARDRAILS_BLOCK}
 
 **آپ کا کام:**
 صارف کی مخصوص ہدایات کے مطابق اسکرپٹ refine کریں، جبکہ یقینی بنائیں کہ نتیجہ قدرتی اور conversational لگے — جیسے کوئی اصل شخص camera پر بول رہا ہو۔

@@ -12,37 +12,21 @@ export type Stage =
 export interface ScriptGenerationFormDraft {
   title: string
   topic: string
-  scriptType: string
-  tone: string
+  styleTone: string
   targetAudience: string
   keyPoints: string
   duration: number
-  pacing: string
-  introStyle: string
-  includeHook: boolean
-  includeCTA: boolean
-  includeTransitions: boolean
-  includeQuestions: boolean
   generateOneSentence: boolean
-  specialRequirements: string
 }
 
 export const DEFAULT_SCRIPT_GENERATION_FORM_DRAFT: ScriptGenerationFormDraft = {
   title: "",
   topic: "",
-  scriptType: "",
-  tone: "",
+  styleTone: "",
   targetAudience: "",
   keyPoints: "",
   duration: 60,
-  pacing: "Medium",
-  introStyle: "",
-  includeHook: false,
-  includeCTA: false,
-  includeTransitions: false,
-  includeQuestions: false,
   generateOneSentence: false,
-  specialRequirements: "",
 }
 
 export interface ScriptRefinementFormDraft {

@@ -14,12 +14,9 @@ import {
 } from "@/lib/videoFormats"
 import { getVideoUploadRejectionReason } from "@/lib/mediaUploadGuards"
 import { MAX_USER_VIDEOS } from "@/lib/mediaLimits"
+import { runSpeakerValidation } from "@/lib/speakerValidation"
 
 const MAX_VIDEO_SIZE_BYTES = 2048 * 1024 * 1024 // 2 GB — matches server limit
-const MIN_VIDEO_WIDTH = 640
-const MIN_VIDEO_HEIGHT = 480
-const MAX_VIDEO_WIDTH = 3840
-const MAX_VIDEO_HEIGHT = 2160
 const MAX_VIDEO_DURATION_SEC = 600
 
 type QueueStatus = "pending" | "uploading" | "done" | "error"
@@ -139,12 +136,6 @@ export function VideoTab({ getToken }: VideoTabProps) {
         video.onerror = () => reject(new Error("Video codec/container not compatible."))
         video.src = objectUrl
       })
-      if (metadata.width < MIN_VIDEO_WIDTH || metadata.height < MIN_VIDEO_HEIGHT) {
-        return { valid: false, reason: `Resolution too low. Minimum ${MIN_VIDEO_WIDTH}x${MIN_VIDEO_HEIGHT}.` }
-      }
-      if (metadata.width > MAX_VIDEO_WIDTH || metadata.height > MAX_VIDEO_HEIGHT) {
-        return { valid: false, reason: `Resolution too high. Maximum ${MAX_VIDEO_WIDTH}x${MAX_VIDEO_HEIGHT} (4K).` }
-      }
       if (!Number.isFinite(metadata.duration) || metadata.duration <= 0) {
         return { valid: false, reason: "Invalid video duration." }
       }
@@ -308,6 +299,13 @@ export function VideoTab({ getToken }: VideoTabProps) {
             )
           }
         )
+        const speakerCheck = await runSpeakerValidation(item.file, 4)
+        if (speakerCheck.status === "warning" && speakerCheck.code === "MULTIPLE_SPEAKERS_DETECTED") {
+          toast.warning(speakerCheck.message, {
+            duration: 6000,
+            description: `Detected up to ${speakerCheck.details.max_detected_persons} people across ${speakerCheck.details.frames_analyzed} sampled frames. ${speakerCheck.action.suggestion}`,
+          })
+        }
         successCount += 1
         removeFromQueue(item.id)
       } catch (err: any) {
@@ -375,8 +373,8 @@ export function VideoTab({ getToken }: VideoTabProps) {
           <span className="text-sm font-medium">Click to browse video files</span>
           <span className="text-xs text-white/30">
             Supported: {SUPPORTED_VIDEO_FORMATS_LABEL}. Max {MAX_USER_VIDEOS} videos per account ({items.length} saved
-            {queueSlotsReserved > 0 ? ` · ${queueSlotsReserved} uploading/queued` : ""}). Max 2GB each. Validation: min
-            480p, max 4K, max {Math.floor(MAX_VIDEO_DURATION_SEC / 60)} min.
+            {queueSlotsReserved > 0 ? ` · ${queueSlotsReserved} uploading/queued` : ""}). Max 2GB each. Validation: any
+            resolution up to 4K, max {Math.floor(MAX_VIDEO_DURATION_SEC / 60)} min.
           </span>
         </button>
 
